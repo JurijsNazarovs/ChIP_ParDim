@@ -1,0 +1,60 @@
+#!/usr/bin/env bds
+#vim: syntax=java
+
+## Prior parameters
+include "basicFunctions"
+
+## Main body
+main() 
+
+## Functions' description
+
+void main() { 
+	out_dir = mkdir(out_dir) 
+	string tag_ #we keep our tag here
+
+	init_chipseq()
+	pseudo_tag() #pseudo replicates creation
+}
+
+void init_chipseq() {
+
+	## Initial checking
+	errorMsg("ctl")
+	errorMsg("pr")
+	errorMsg("true_rep")
+
+	## Read the input
+	possibleInps := "tag"
+
+	if (getNumInpCmdChk(possibleInps) != 1)\
+		error("Wrong input!\n\
+		It has to be 1 of $possibleInps and no numbers in names.\n\
+		Other inputs are ignored.")
+
+	tag_ = get("tag")
+	chkInpFile(tag_, "tag", 0)	
+
+	## Read Parameters
+	rep = getN("rep") 
+
+	subsample = get_conf_val(subsample, ["subsample"])
+	nreads_subsample = parse_number(subsample)
+}
+
+void pseudo_tag() {
+	print("\n\n[Start] Pseudo \n")
+
+	info 	:= get_info(0, rep)
+
+	## Pseudo Replicates
+	tag_ := get("tag") #string
+
+	aln_pr1_o_dir := mkdir("$out_dir/align/pseudo_reps/$info/pr1")
+	aln_pr2_o_dir := mkdir("$out_dir/align/pseudo_reps/$info/pr2")
+
+	_spr(tag_, aln_pr1_o_dir, aln_pr2_o_dir, info) #make self pseudo replicate
+	wait
+
+	print("\n[DONE] Pseudo \n\n")
+}

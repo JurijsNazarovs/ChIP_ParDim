@@ -1,0 +1,72 @@
+#!/usr/bin/env bds
+#vim: syntax=java
+
+## Prior parameters
+include "basicFunctions"
+
+## Main body
+main() 
+
+## Functions description
+
+void main() {
+	out_dir = mkdir(out_dir) 
+	string tag_ #we keep our tag here
+
+	init_chipseq()
+	align_xcor() #xcor_qc calculation
+}
+
+void init_chipseq() {
+	## Initial checking
+	errorMsg("ctl")
+	errorMsg("pr")
+	errorMsg("true_rep")
+
+	## Read the input
+	possibleInps := "tag"
+
+	if (getNumInpCmdChk(possibleInps) != 1)\
+		error("Wrong input!\n\
+		It has to be 1 of $possibleInps and no numbers in names.\n\
+		Other inputs are ignored.")
+
+	tag_ = get("tag")
+	chkInpFile(tag_, "tag", 0)	
+
+	## Read Parameters
+	rep = getN("rep") 
+	pe = get_conf_val_bool(pe, ["pe"])
+
+	subsample_xcor = get_conf_val(subsample_xcor, ["subsample_xcor"])
+	nreads_subsample_xcor = parse_number(subsample_xcor)
+}
+
+void align_xcor() {
+	
+	print("\n[Start] xcor \n\n")
+
+	if (is_single_ended(0, rep)) 	_align_xcor_SE(rep, nth)
+	else 				_align_xcor_PE(rep, nth)
+
+	print("\n[DONE] xcor \n\n")
+}
+
+void _align_xcor_SE(int rep, int nth_rep) {
+
+	info := get_info(0, rep)
+
+	aln_o_dir := mkdir("$out_dir/align/$info") #create align output directory
+	qc_o_dir  := mkdir("$out_dir/qc/$info") #create qc output dir.
+
+	subsampled_tag := _subsample_tag(tag_, nreads_subsample_xcor, aln_o_dir, info) #create 15M.tagAlign.gz in aln_o_dir
+	wait
+
+	_xcor(subsampled_tag, qc_o_dir, info, nth_rep, info)
+	wait
+}
+
+void _align_xcor_PE(int rep, int nth_rep) {
+	
+	error("PE version is still not supported")	
+}

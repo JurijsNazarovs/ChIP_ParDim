@@ -1,0 +1,160 @@
+#!/usr/bin/env bds
+#vim: syntax=java
+
+## Prior parameters
+include "basicFunctions"
+
+## Main body
+main() 
+
+void main() { // chipseq pipeline starts here
+
+	out_dir = mkdir(out_dir)
+	int numRep
+	int repName
+
+	init_chipseq()
+	naive_overlap()
+}
+
+void init_chipseq() {
+	## Initial checking
+	if (!is_callpeak_spp()) error("Overlap supports just spp peaks")
+	if (no_naive_overlap) error("There is an indication of not doing naive overlap")
+	errorMsg("pr")
+	errorMsg("ctl")
+
+	## Read input
+	possibleInps := "peak"
+	numRep = getNumInpCmdChk(possibleInps)	
+	
+	# Other check points
+	if (getNumInpCmdChk("peak_pooled")  > 1) error("No more than 1 pooled peak can be provided!")
+	peakPooled := get("peak_pooled") #search for peak_pooled
+
+	if (numRep == 0) error("No peaks of reps are provided! Nothing can be done.")
+	if (peakPooled == "" && numRep > 2) error("If pooled peak is provided, the number of peaks can't be higer than 2!")
+
+	## Read parameters
+	true_rep = get_conf_val_bool(true_rep, ["true_rep"])
+	if (true_rep && (numRep !=2 || peakPooled == "")) error("Not enough arguments to do overlap for true replicates!\n\
+		Should be: peak1, peak2, peak_pooled")
+
+	if (numRep == 1 ){
+		if(!true_rep && getNumInpCmdChk("peak_pr") != 2)\
+			error("Wrong input!\n\
+		With true_rep = false and just 1 peak input\n\
+		2 peak_pr inputs have to be provided in the form\n\
+		peak_pr1 and peak_pr2\n")
+
+		repName = getN("rep") #otherwise we do not need rep
+	} else errorMsg("rep")
+
+
+
+
+}
+
+void naive_overlap() {
+
+	print("\n[Start] Naive overlap \n\n")
+	
+	string peak_pooled, peak_ppr1, peak_ppr2
+	string{} peak, peak_pr1, peak_pr2  #peaks: map with key ("$rep")
+
+	## Get input
+	# After this procedure some of peaks defined above can be empty.
+
+	for (int rep = 0; rep <= numRep; rep++) { #rep == 0: pooled
+		for (int pse = 0; pse <= 2; pse++) { #pse == 0: true rep
+
+			if (true_rep && pse > 0) continue
+
+			peak_ := get_peak(rep, pse)
+			
+			if ((peak_ != "") && !path_exists(peak_)){
+				suffix1 := rep==0 ? "replicate" : "replicate $rep"
+				suffix2 := rep==0 ? "pseudo-replicate $pse" : "pseudo-replicate $pse for replicate $rep"
+				prefix := (rep==0 ? "pooled " : "") + (pse==0 ? suffix1 : suffix2)
+			
+				print("$prefix: \n\t$peak_"+"\n")
+				error("\t\tFile not found!\n")
+			}
+
+			if (rep == 0) {
+				if (pse == 0)		peak_pooled 	= peak_
+				else if (pse == 1)	peak_ppr1 	= peak_
+				else if (pse == 2)	peak_ppr2 	= peak_
+			}
+			else {
+				if (pse == 0){
+					label := (rep == 1)? "peak or peak1 (depending on a sequence)" : "peak" + rep
+					chkInpFile(peak_, label, 1)
+					peak{"$rep"} = peak_
+				}
+				else if (pse == 1)	peak_pr1{"$rep"} = peak_
+				else if (pse == 2)	peak_pr2{"$rep"} = peak_
+			}
+		}
+	}
+
+	## Naive Overlap
+	flTasks := 0 #number of completed tasks
+	overlap_o_dir := mkdir( "$out_dir/peak/spp/overlap" )
+
+	# Overlap: peaki_pr1 + peaki_pr2 + peaki
+	for (int i = 1; i <= numRep; i++) {
+		if (!true_rep && peak_pr1{"$i"} != "" && peak_pr2{"$i"} != "") {
+			string overlap_pr_o_dir
+			if (numRep == 1){
+				overlap_pr_o_dir = mkdir("$overlap_o_dir/rep$repName")
+			} else {
+				overlap_pr_o_dir = mkdir("$overlap_o_dir/rep$i")
+			}
+
+			_naive_overlap_peak("regionPeak", peak{"$i"}, peak_pr1{"$i"}, peak_pr2{"$i"},\
+					 overlap_pr_o_dir, "peak", "peak_spp", "")
+			wait
+			flTasks++
+
+			string label1, label2, label3
+
+			if (numRep == 1){
+				label1 = "peak$numRep" + "_pr1"
+				label2 = "peak$numRep" + "_pr2"
+				label3 = "peak$numRep"
+			} else {
+				label1 = "peak$i" + "_pr1"
+				label2 = "peak$i" + "_pr2"
+				label3 = "peak$i"
+			}
+
+			print("Overlap: $label1 + $label2 + $label3 was done.\n")
+		}
+	}
+
+	# Overlap: sum of peaks + peak_pooled + peak_ppr1(?) + peak_ppr2(?) 
+	if (numRep > 1 && peak_pooled != "") {		
+		overlap_pooled_o_dir := mkdir("$overlap_o_dir/pooled")
+
+		string[] peaks // make array of peaks from true replicates
+		for ( int rep = 1; rep <= numRep; rep++ ) peaks.add( peak{"$rep"} )
+
+		if(!true_rep && (peak_ppr1 == "" || peak_ppr2 == ""))\
+			error("Wrong input! If use -true_rep false and peak_pooled,\n\
+			then peak_ppr1 and peak_ppr2 should be provided.")
+
+		peak_ppr1_ := true_rep ? "" : peak_ppr1
+		peak_ppr2_ := true_rep ? "" : peak_ppr2
+
+		_naive_overlap_peak( "regionPeak", peak_pooled, peaks, \
+				peak_ppr1_, peak_ppr2_, overlap_pooled_o_dir, "peak", "peak_spp", "")
+		wait
+		flTasks++
+		print("Overlap: sum of peaks + peak_pooled + peak_ppr1(?) + peak_ppr2(?) was done.\n")
+	}
+
+	wait
+	if (flTasks == 0) error("Nothing was done. Please, check the input!")
+	print("\n[End] Naive overlap \n\n")
+}

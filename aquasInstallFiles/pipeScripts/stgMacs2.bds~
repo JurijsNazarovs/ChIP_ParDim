@@ -1,0 +1,115 @@
+#!/usr/bin/env bds
+#vim: syntax=java
+
+## Prior parameters
+include "basicFunctions"
+
+## Main body
+main() 
+
+## Functions' description
+
+void main() {
+
+	out_dir = mkdir(out_dir)
+	string tag_
+	string ctl_tag_
+	int xcor_qc_num #number of qc files
+
+	init_chipseq()
+	sig_trk() 
+}
+
+void init_chipseq() {
+	## Initial checking
+	errorMsg("true_rep")
+	errorMsg("ctl")
+	errorMsg("pr")	
+
+	sigtrk = get_conf_val(sigtrk, ["sigtrk"])
+
+	possibleInps := ["tag", "ctl_tag"]
+
+	for (string key : possibleInps){
+		if (getNumInpCmdChk(key) != 1)\
+			error("Wrong input!\n\
+		It has to be 1 of $possibleInps and no numbers in names.\n\
+		Other inputs are ignored.\n")
+	}
+
+	# Read the input
+	tag_ = get("tag")
+	chkInpFile(tag_, "tag", 0)
+
+	ctl_tag_ = get("ctl_tag")
+	chkInpFile(ctl_tag_, "ctl_tag", 0)
+
+	#if (getNumInpCmdChk("ctl_tag") == 1){
+	#	ctl_tag_ = get("ctl_tag")
+	#	chkInpFile(ctl_tag_, "ctl_tag", 0)
+	#} else {
+	#	ctl_tag_=""
+	#}
+	
+	## Read the input for xcor
+	xcor_qc_num = getNumInpCmdChk("xcor_qc")
+
+	if(xcor_qc_num == 0)\
+		error("Wrong input!\n\
+		No xcor_qc is provided.\n")
+
+	if(xcor_qc_num == 1)\
+		rep = getN("rep") #otherwise we do not need rep
+	else errorMsg("rep")
+}
+
+void sig_trk() { #probably should be rewritten later
+	print("\n[Start] STG \n\n")
+	
+	## Length of fragment calculation
+	real fraglenTmp = 0.0
+	for(int rep = 1; rep <= xcor_qc_num; rep++){
+		xcor_qc_tmp := get_xcor_qc(rep)
+		label := (rep == 1)? "xcor_qc or xcor_qc1 (depending on a sequence)" : "xcor_qc" + rep
+		chkInpFile(xcor_qc_tmp, label, 1)
+
+		fraglenTmp += get_fraglen(xcor_qc_tmp).parseReal()
+	}
+	
+	real xcor_qc_num_real = xcor_qc_num #need to do like that because of java syntax
+	fraglenTmp = round(fraglenTmp/xcor_qc_num_real)
+	int fraglenT = toInt(fraglenTmp)
+	string fraglen = fraglenT
+	
+	## Directories and labels
+	string peak_o_dir = mkdir("$out_dir/peak/macs2") #the root for all peaks
+	string sig_o_dir = mkdir( "$out_dir/signal/macs2") #signal directory structure
+	string label
+	string label_ctl
+	string hrchy 		
+
+	if (xcor_qc_num == 1){ #one xcor file
+		#true replicates
+		peak_o_dir = mkdir("$peak_o_dir/rep$rep")
+		sig_o_dir = mkdir( "$sig_o_dir/rep$rep" )
+		label = "rep$rep"
+		hrchy = "rep$rep"
+
+		label_ctl = "ctl$rep"
+
+	} else { #pool case, i.e. several xcor files
+		#true replicates
+		peak_o_dir = mkdir("$peak_o_dir/pooled_rep")
+		sig_o_dir = mkdir( "$sig_o_dir/pooled_rep" )
+		label = "pooled"
+		hrchy = "pooled_rep"
+
+		label_ctl = "ctl, pooled"
+	}
+
+	## Generate signals
+	_macs2( tag_, ctl_tag_, fraglen, true, peak_o_dir, sig_o_dir, label, label_ctl, hrchy )
+	wait
+
+	print("\n[Done] STG \n\n")
+}

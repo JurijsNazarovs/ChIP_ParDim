@@ -1,0 +1,62 @@
+#!/usr/bin/env bds
+#vim: syntax=java
+## NOT WORKING SCRIPT. HAS TO BE DELETED
+## Prior parameters
+include "basicFunctions"
+
+## Main body
+main() 
+
+## Functions' description
+
+void main() { 
+	out_dir = mkdir(out_dir)
+	string peaks
+	int numRep
+	int repName
+
+	init_chipseq()
+	peakToBigBed() 
+}
+
+void init_chipseq() {
+	## Initial checking
+	callpeak = get_conf_val(callpeak, ["callpeak"])
+	if (!is_callpeak_spp()) error("IDR supports just spp peaks")
+
+	errorMsg("pr")	
+	errorMsg("true_rep")
+	
+	## Read input
+	possibleInps := "peak"
+	#numRep = getNumInpCmdChk(possibleInps)	
+	#if (numRep != 1)\
+	#	error("Wrong input!\n\
+	#	The input should be 1 peak\n")
+	
+	ctl=getN("ctl")
+	rep=getN("rep")
+}
+
+void peakToBigBed() {
+	print("\n[Start] peak to bigBed \n\n")
+	
+	peak := get_peak(rep, 0)
+#error("$peak")
+	bdG := "/u/n/a/nazarovs/private/pipeline/pipeAQUAS/results/out/huesos$rep.bedgraph"
+
+
+	in 	:= [ peak ]
+ 	out 	:= [ bdG ]
+
+	tid := task( out<-in ) {
+		sys $shcmd_init
+		sys export LC_COLLATE=C
+
+		sys bedtools genomecov -bg -trackline -trackopts name=$bdG -i $peak -g $chrsz > $bdG
+	}
+
+	wait
+	
+	print("\n[End] peak to bigBed \n\n")
+}
