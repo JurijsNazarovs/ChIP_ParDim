@@ -21,8 +21,8 @@ curScrName=${0##*/} #delete last backSlash
 argsFile=${1:-"args.listDev"} 
 dagFile=${2:-"isPool.dag"} #create this
 jobsDir=${3:-"isPoolTmp"} #working directory, provided with one of analysed dirs
-inpDataInfo=${4} #text file with input data
-resPath=${5:-"/tmp/isPool"} #return on submit server. Can be read from file if empty
+resPath=${4:-"/tmp/isPool"} #return here on submit server. Read from file if empty
+inpDataInfo=${5} #text file with input data
 resDir=${6:-"resultedDir"}
 transOut=${7:-"isPool"}
 
