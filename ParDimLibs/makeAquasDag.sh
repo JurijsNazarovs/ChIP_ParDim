@@ -485,7 +485,7 @@ if [[ "$firstStage" -le "$xcorStage" && "$lastStage" -ge "$xcorStage" ]]; then
       jobId="$jobName$i"
       jobArgsFile=("$jobsDir/$jobId.args")
 
-      hd="${repSize[$((j-1))]}" #size in bytes
+      hd="${repSize[$((i-1))]}" #size in bytes
       hd=$(echo $hd/1024^3 + 1 | bc) #in GB
       ram=$((hd*2))
       hd=$((hd + softSize)) #for software
