@@ -173,9 +173,9 @@ ChkEmptyArgs(){
 }
 
 ChkValArg(){
-  ## Function checks if $argLab($1) has one of following valuesm and add msg($2)
+  ## Function checks if $argLab($1) has one of following values and add msg($2)
   # in ErrMsg.
-  # Usage: ChkValyArg "isSubmit" "msg" "1" "0" "-1"
+  # Usage: ChkValArg "map" "Task $i:\n" "single" "multi"
   local argLab=${1}
   if [[ -z $(RmSp "$argLab") ]]; then
       ErrMsg "Argument provided tp ChkValArg is empty
@@ -245,18 +245,6 @@ ChkAvailToWrite(){
       rm -rf "$outFile" #delete what we created
     fi
   done
-}
-
-ChkUrl(){
-  local string=$1
-  local regex='^(https?|ftp|file)://'
-  regex+='[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-‌​A-Za-z0-9\+&@#/%=~_|‌​]$'
-  if [[ $string =~ $regex ]]
-  then 
-      echo "true"
-  else
-    echo "false"
-  fi
 }
 
 ChkStages(){
@@ -697,8 +685,6 @@ PrintArgs(){
   local argSize
   for i in ${posArgs[@]}
   do
-    #eval argSize="\${#$i[@]}"
-    #echo "$argSize"
     eval "printf \"%-$((maxLenArg + 3))s %s \n\"\
                  \"- $i\" \"$"$i"\" "
   done
@@ -720,5 +706,216 @@ mk_dir(){ #Delete.
       echo "$dirName is created"
   else
     ErrMsg "Error: $dirName not created"
+  fi
+}
+
+
+DetectInput(){
+  # Function is specifically for ChIP analysis to detect input files
+  # It returns names and size of founded corresponded files
+  # Usage:
+  #  DetectInput "$inpDataInfo" "${#inpType[@]}" "${inpType[@]}" "$inpExt"\
+      #        "true" "true" "true"
+  # Output:
+  #  repName, repSize, repNum, useCtlPool
+  
+
+  ## Input
+  local inpDataInfo=$1 #file with input information
+  shift
+  local inpTypeNum=${1:-"0"} #size of inpType array
+  shift
+  
+  if [[ $inpTypeNum -eq 0 ]]; then
+      ErrMsg "No input to detect is provided"
+  else
+    while (( inpTypeNum -- > 0 )) ; do
+      inpType+=( "$1" )
+      shift
+    done
+  fi
+
+  local inpExt=${1:-"tagAlign"}
+  local isInpNested=${2:-"false"}
+  local isDetectSize=${3:-"false"}
+  local isDetectPool=${4:-"false"}
+
+  ## Initial checking
+  ChkExist "f" "$inpDataInfo" "File with information about input"
+  ChkValArg "isInpNested" "" "true" "false"
+  ChkValArg "isDetectSize" "" "true" "false"
+  ChkValArg "isDetectPool" "" "true" "false"
+  
+  local inpPath="$(awk 'NR==1{print $1; exit}' "$inpDataInfo")"
+  inpPath="${inpPath%:}"
+  if [[ "$isInpNested" = true ]]; then
+      local inpPathTmp="$inpPath"align
+
+      local i
+      for i in "${inpType[@]}"; do
+        readarray -t inpDir <<<\
+                  "$(awk -F "\n"\
+                       -v pattern="^$inpPathTmp/$i[0-9]*:$"\
+                       '{ if ($0 ~ pattern) {print $0} }' "$inpDataInfo"
+                 )"
+        
+        if [[ -z $(RmSp "$inpDir") ]]; then
+            ErrMsg "No directories are found corresponding to the pattern:
+                 $inpPathTmp/$i[0-9]*
+                 Maybe option isInpNested should be false?"
+        fi
+
+        local j
+        for j in "${!inpDir[@]}"; do
+          readarray -t strTmp <<< \
+                    "$(awk -F "\t"\
+                         -v dir="${inpDir[$j]}"\
+                         -v file="$inpExt$"\
+                         '{ 
+                            if ($0 ~ dir) {f = 1; next}
+                            if ($0 ~ "^/.*:$") {f = 0}
+                            if (f == 1 && $1 ~ file) {print $0} 
+                          }' "$inpDataInfo"
+                    )"
+	  
+	  if [[ ${#strTmp[@]} -ne 1 ]]; then
+	      ErrMsg "Cannot detect replicate name from ${inpDir[$j]}"
+	  else #just one possible file in directory
+            strTmp=(${strTmp[@]})
+            if [[ "$isDetectSize" = true ]]; then
+                eval $i"Size[\"$j\"]=${strTmp[1]}"
+            fi
+	    eval $i"Name[\"$j\"]=${inpDir[$j]%:}/\"${strTmp[0]}\""
+          fi
+
+          # Detect the pool flag for ctlName[$j]
+          if [[ "$isDetectPool" = true ]]; then
+              if [[ "$i" = ctl ]]; then
+                  readarray -t strTmp <<< \
+                            "$(awk -F "\t"\
+                                 -v dir="${inpDir[$j]}"\
+                                 -v file="$(basename ${ctlName[$j]}).pool."\
+                                 '{ 
+                                    if ($0 ~ dir) {f = 1; next}
+                                    if ($0 ~ "^/.*:$") {f = 0}
+                                    if (f == 1 && $1 ~ file) {print $1} 
+                                 }' "$inpDataInfo"
+                           )"
+                  local isCtlPoolTmp=() #files with pool.true or pool.false at the end
+                  local k
+                  for k in "${strTmp[@]}"; do
+                    if [[ "${k##*.}" = true || "${k##*.}" = false ]]; then
+                        isCtlPoolTmp=("${nPool[@]}" "${k##*.}")
+                    fi   
+                  done
+                  if [[ "${#isCtlPoolTmp[@]}" -gt 1 ]]; then
+                      ErrMsg "Several pooled flags are detected in ${inpDir[$j]}"
+                  fi
+
+                  if [[ "${#isCtlPoolTmp[@]}" -eq 0 ]]; then
+                      useCtlPool["$j"]="false"
+                  else
+                    useCtlPool["$j"]="$isCtlPoolTmp"
+                  fi
+              fi
+          fi
+        done
+        
+        eval "strTmp=(\${"$i"Name[@]})"
+        if [[ -n  $(ArrayGetDupls "${strTmp[@]##*/}") ]]; then
+            ErrMsg "Duplicates in names are prohibited on this stage."
+        fi #because files are moving in condor without structure saving
+        eval $i"Num=\${#"$i"Name[@]}" #repNum
+      done
+  else  #all files in one directory
+    local posEnd=("ctl" "dnase")
+
+    local i
+    for i in "${inpType[@]}"; do
+      readarray -t strTmp <<< \
+                "$(awk -F "\t"\
+                     -v dir="${inpDir[$j]}"\
+                     -v file="$inpExt$"\
+                     '{ 
+                       if ($0 ~ dir) {f = 1; next}
+                       if ($0 ~ "^/.*:$") {f = 0}
+                       if (f == 1 && $1 ~ file) {print $0} 
+                     }' "$inpDataInfo"
+              )"
+      
+      if [[ "$i" != "rep" ]]; then
+          local inpExtTmp=".$i.$inpExt"
+          readarray -t inpName <<<\
+                    "$(awk -F "\t"\
+                         -v dir="$inpPath:$"\
+                         -v file="$inpExtTmp$"\
+                         '{ if ($0 ~ dir) {f = 1; next}
+                            if ($0 ~ "^/.*:$") {f = 0}
+                            if (f ==1 && $1 ~ file && NF > 1) {print $0} 
+                         }' "$inpDataInfo"
+                  )"
+      else
+        local posEndTmp=."$(JoinToStr ".|." "${posEnd[@]}")."
+        readarray -t inpName <<<\
+                  "$(awk -F "\t"\
+                       -v dir="$inpPath:$"\
+                       -v file="$posEndTmp"\
+                       -v ext="$inpExt$"\
+                       '{ if ($0 ~ dir) {f = 1; next}
+                          if ($0 ~ "^/.*:$") {f = 0}
+                          if (f==1 && $1 !~ file && $1 ~ ext && NF > 1)
+                             {print $0}
+                       }' "$inpDataInfo"
+                 )"
+      fi
+
+      if [[ -z $(RmSp "$inpName") ]]; then
+          eval $i"Num=0"
+          continue
+      fi
+
+      # Fill variables with full path to files and size
+      local j
+      for j in "${!inpName[@]}"; do
+        strTmp=(${inpName[$j]})
+        if [[ "$isDetectSize" = true ]]; then
+            eval $i"Size[\"$j\"]=${strTmp[1]}"
+        fi
+        eval $i"Name[\"$j\"]=$inpPath\"${strTmp[0]}\""
+
+        # Detect the pool flag for ctlName[$j]
+        if [[ "$isDetectPool" = true ]]; then
+            if [[ "$i" = ctl ]]; then
+                readarray -t strTmp <<< \
+                          "$(awk -F "\t"\
+                           -v dir="$inpPath:$"\
+                           -v file="$(basename ${ctlName[$j]}).pool."\
+                           '{ 
+                              if ($0 ~ dir) {f = 1; next}
+                              if ($0 ~ "^/.*:$") {f = 0}
+                              if (f == 1 && $1 ~ file) {print $1} 
+                           }' "$inpDataInfo"
+                      )"
+                local isCtlPoolTmp=() #files with pool.true or pool.false at the end
+                local k
+                for k in "${strTmp[@]}"; do
+                  if [[ "${k##*.}" = true || "${k##*.}" = false ]]; then
+                      isCtlPoolTmp=("${nPool[@]}" "${k##*.}")
+                  fi   
+                done
+                if [[ "${#isCtlPoolTmp[@]}" -gt 1 ]]; then
+                    ErrMsg "Several pooled flags are detected in ${inpDir[$j]}"
+                fi
+
+                if [[ "${#isCtlPoolTmp[@]}" -eq 0 ]]; then
+                    useCtlPool["$j"]="false"
+                else
+                  useCtlPool["$j"]="$isCtlPoolTmp"
+                fi
+            fi
+        fi
+      done
+      eval $i"Num=\${#inpName[@]}" #repNun
+    done
   fi
 }

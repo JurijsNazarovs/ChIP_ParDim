@@ -71,8 +71,8 @@ posArgs=("inpExt" "isInpNested" "firstStage" "lastStage" "trueRep"
 #rewrite stages!
 inpExt="nodup.tagAlign.gz" #extension of original input data
 isInpNested="true"	#if all files in one dir or in subdirs: rep$i, ctl$i
-firstStage="download"		#starting stage of the pipeline 
-lastStage="peaks"		#ending stage of the pipeline
+firstStage="download"	#starting stage of the pipeline 
+lastStage="peaks"	#ending stage of the pipeline
 trueRep="false"		#whether to use true replicates or not
 coresPeaks="4"          #number of cores for spp peaks caller
 coresStg="1"            #number of cores for signal track generation (Macs2) 
@@ -138,171 +138,14 @@ idrOverlapStage=$(MapStage "$idrName$overlapName")
 
 
 ## Detect reps and ctls
-inpPath="$(awk 'NR==1{print $1; exit}' "$inpDataInfo")"
-inpPath="${inpPath%:}"
-if [[ "$isInpNested" = true ]]; then
-    inpPathTmp="$inpPath"align
-    inpType=("rep" "ctl") #names of searched dirs with data
-
-    for i in "${inpType[@]}"; do
-      readarray -t inpDir <<<\
-                "$(awk -F "\n"\
-                       -v pattern="^$inpPathTmp/$i[0-9]*:$"\
-                       '{ if ($0 ~ pattern) {print $0} }' "$inpDataInfo"
-                 )"
-      
-      if [[ -z $(RmSp "$inpDir") ]]; then
-          ErrMsg "No directories are found corresponding to the pattern:
-                 $inpPathTmp/$i[0-9]*
-                 Maybe option isInpNested should be false?"
-      fi
-
-      for j in "${!inpDir[@]}"; do
-        readarray -t strTmp <<< \
-                  "$(awk -F "\t"\
-                         -v dir="${inpDir[$j]}"\
-                         -v file="$inpExt$"\
-                         '{ 
-                            if ($0 ~ dir) {f = 1; next}
-                            if ($0 ~ "^/.*:$") {f = 0}
-                            if (f == 1 && $1 ~ file) {print $0} 
-                          }' "$inpDataInfo"
-                    )"
-	
-	if [[ ${#strTmp[@]} -ne 1 ]]; then
-	    ErrMsg "Cannot detect replicate name from ${inpDir[$j]}"
-	else #just one possible file in directory
-          strTmp=(${strTmp[@]})
-          eval $i"Size[\"$j\"]=${strTmp[1]}"
-	  eval $i"Name[\"$j\"]=${inpDir[$j]%:}/\"${strTmp[0]}\""
-        fi
-
-        # Detect the pool flag for ctlName[$j]
-        if [[ "$lastStage" -gt "$poolStage" ]]; then
-            if [[ "$i" = ctl ]]; then
-                readarray -t strTmp <<< \
-                          "$(awk -F "\t"\
-                                 -v dir="${inpDir[$j]}"\
-                                 -v file="$(basename ${ctlName[$j]}).pool."\
-                                 '{ 
-                                    if ($0 ~ dir) {f = 1; next}
-                                    if ($0 ~ "^/.*:$") {f = 0}
-                                    if (f == 1 && $1 ~ file) {print $1} 
-                                 }' "$inpDataInfo"
-                           )"
-                isCtlPoolTmp=() #files with pool.true or pool.false at the end
-                for k in "${strTmp[@]}"; do
-                  if [[ "${k##*.}" = true || "${k##*.}" = false ]]; then
-                      isCtlPoolTmp=("${nPool[@]}" "${k##*.}")
-                  fi   
-                done
-                if [[ "${#isCtlPoolTmp[@]}" -gt 1 ]]; then
-                    ErrMsg "Several pooled flags are detected in ${inpDir[$j]}"
-                fi
-
-                if [[ "${#isCtlPoolTmp[@]}" -eq 0 ]]; then
-                    useCtlPool["$j"]="false"
-                else
-                  useCtlPool["$j"]="$isCtlPoolTmp"
-                fi
-            fi
-         fi
-      done
-      
-      eval "strTmp=(\${"$i"Name[@]})"
-      if [[ -n  $(ArrayGetDupls "${strTmp[@]##*/}") ]]; then
-          ErrMsg "Duplicates in names are prohibeted on this stage."
-      fi #because files are moving in condor without structure saving
-      eval $i"Num=\${#"$i"Name[@]}" #repNum
-    done
-else  #all files in one directory
-  inpType=("rep" "ctl") #names of searched files
-  posEnd=("ctl" "dnase")
-
-  for i in "${inpType[@]}"; do
-    readarray -t strTmp <<< \
-              "$(awk -F "\t"\
-                     -v dir="${inpDir[$j]}"\
-                     -v file="$inpExt$"\
-                     '{ 
-                       if ($0 ~ dir) {f = 1; next}
-                       if ($0 ~ "^/.*:$") {f = 0}
-                       if (f == 1 && $1 ~ file) {print $0} 
-                     }' "$inpDataInfo"
-              )"
-    
-    if [[ "$i" != "rep" ]]; then
-        inpExtTmp=".$i.$inpExt"
-        readarray -t inpName <<<\
-                  "$(awk -F "\t"\
-                         -v dir="$inpPath:$"\
-                         -v file="$inpExtTmp$"\
-                         '{ if ($0 ~ dir) {f = 1; next}
-                            if ($0 ~ "^/.*:$") {f = 0}
-                            if (f ==1 && $1 ~ file && NF > 1) {print $0} 
-                         }' "$inpDataInfo"
-                  )"
-    else
-      posEndTmp=."$(JoinToStr ".|." "${posEnd[@]}")."
-      readarray -t inpName <<<\
-                "$(awk -F "\t"\
-                       -v dir="$inpPath:$"\
-                       -v file="$posEndTmp"\
-                       -v ext="$inpExt$"\
-                       '{ if ($0 ~ dir) {f = 1; next}
-                          if ($0 ~ "^/.*:$") {f = 0}
-                          if (f==1 && $1 !~ file && $1 ~ ext && NF > 1)
-                             {print $0}
-                       }' "$inpDataInfo"
-                 )"
-    fi
-
-    if [[ -z $(RmSp "$inpName") ]]; then
-         eval $i"Num=0"
-        continue
-    fi
-
-    # Fill variables with full path to files and size
-    for j in "${!inpName[@]}"; do
-      strTmp=(${inpName[$j]})
-      eval $i"Size[\"$j\"]=${strTmp[1]}"
-      eval $i"Name[\"$j\"]=$inpPath\"${strTmp[0]}\""
-
-      # Detect the pool flag for ctlName[$j]
-      if [[ "$lastStage" -gt "$poolStage" ]]; then
-          if [[ "$i" = ctl ]]; then
-              readarray -t strTmp <<< \
-                        "$(awk -F "\t"\
-                           -v dir="$inpPath:$"\
-                           -v file="$(basename ${ctlName[$j]}).pool."\
-                           '{ 
-                              if ($0 ~ dir) {f = 1; next}
-                              if ($0 ~ "^/.*:$") {f = 0}
-                              if (f == 1 && $1 ~ file) {print $1} 
-                           }' "$inpDataInfo"
-                      )"
-              isCtlPoolTmp=() #files with pool.true or pool.false at the end
-              for k in "${strTmp[@]}"; do
-                if [[ "${k##*.}" = true || "${k##*.}" = false ]]; then
-                    isCtlPoolTmp=("${nPool[@]}" "${k##*.}")
-                fi   
-              done
-              if [[ "${#isCtlPoolTmp[@]}" -gt 1 ]]; then
-                  ErrMsg "Several pooled flags are detected in ${inpDir[$j]}"
-              fi
-
-              if [[ "${#isCtlPoolTmp[@]}" -eq 0 ]]; then
-                  useCtlPool["$j"]="false"
-              else
-                useCtlPool["$j"]="$isCtlPoolTmp"
-              fi
-          fi
-      fi
-    done
-    
-    eval $i"Num=\${#inpName[@]}" #repNum
-  done
+if [[ "$lastStage" -gt "$poolStage" ]]; then
+    isDetectPool=true
+else
+  isDetectPool=false
 fi
+
+DetectInput "$inpDataInfo" "2" "rep" "ctl" "$inpExt"\
+            "$isInpNested" "true" "$isDetectPool"
 
 if [[ "$repNum" -eq 0 ]]; then
     ErrMsg "Number of replicates has to be more than 0"

@@ -61,7 +61,8 @@ if [[ -z $(RmSp "$resPath") ]]; then
     posArgs=("${posArgs[@]}" "resPath")
 fi
 
-ReadArgs "$argsFile" "1" "${curScrName%.*}" "${#posArgs[@]}" "${posArgs[@]}" > /dev/null
+ReadArgs "$argsFile" "1" "${curScrName%.*}" "${#posArgs[@]}" "${posArgs[@]}"\
+         > /dev/null
 PrintArgs "$curScrName" "${posArgs[@]}" "jobsDir"
 
 for i in exePath funcList resPath; do
@@ -77,109 +78,8 @@ ChkValArg "inpExt" "" "bam" "filt_bam"
 
 
 ## Detect reps and ctls
-inpPath="$(awk 'NR==1{print $1; exit}' "$inpDataInfo")"
-inpPath="${inpPath%:}"
-if [[ "$isInpNested" = true ]]; then
-    inpPathTmp="$inpPath"align
-    inpType=("rep" "ctl") #names of searched dirs with data
-
-    for i in "${inpType[@]}"; do
-      readarray -t inpDir <<<\
-                "$(awk -F "\n"\
-                       -v pattern="^$inpPathTmp/$i[0-9]*:$"\
-                       '{ if ($0 ~ pattern) {print $0} }' "$inpDataInfo"
-                 )"
-      
-      if [[ -z $(RmSp "$inpDir") ]]; then
-          ErrMsg "No directories are found corresponding to the pattern:
-                 $inpPathTmp/$i[0-9]*
-                 Maybe option isInpNested should be false?"
-      fi
-
-      for j in "${!inpDir[@]}"; do
-        readarray -t strTmp <<< \
-                  "$(awk -F "\t"\
-                         -v dir="${inpDir[$j]}"\
-                         -v file="$inpExt$"\
-                         '{ 
-                            if ($0 ~ dir) {f = 1; next}
-                            if ($0 ~ "^/.*:$") {f = 0}
-                            if (f == 1 && $1 ~ file) {print $0} 
-                          }' "$inpDataInfo"
-                    )"
-	
-	if [[ ${#strTmp[@]} -ne 1 ]]; then
-	    ErrMsg "Cannot detect replicate name from ${inpDir[$j]}"
-	else #just one possible file in directory
-          strTmp=(${strTmp[@]})
-          eval $i"Size[\"$j\"]=${strTmp[1]}"
-	  eval $i"Name[\"$j\"]=${inpDir[$j]%:}/\"${strTmp[0]}\""
-        fi
-      done
-      
-      eval "strTmp=(\${"$i"Name[@]})"
-      if [[ -n  $(ArrayGetDupls "${strTmp[@]##*/}") ]]; then
-          ErrMsg "Duplicates in names are prohibeted on this stage."
-      fi #because files are moving in condor without structure saving
-      eval $i"Num=\${#"$i"Name[@]}" #repNum
-    done
-else  #all files in one directory
-  inpType=("rep" "ctl") #names of searched files
-  posEnd=("ctl" "dnase")
-
-  for i in "${inpType[@]}"; do
-    readarray -t strTmp <<< \
-              "$(awk -F "\t"\
-                     -v dir="${inpDir[$j]}"\
-                     -v file="$inpExt$"\
-                     '{ 
-                       if ($0 ~ dir) {f = 1; next}
-                       if ($0 ~ "^/.*:$") {f = 0}
-                       if (f == 1 && $1 ~ file) {print $0} 
-                     }' "$inpDataInfo"
-              )"
-    
-    if [[ "$i" != "rep" ]]; then
-        inpExtTmp=".$i.$inpExt"
-        readarray -t inpName <<<\
-                  "$(awk -F "\t"\
-                         -v dir="$inpPath:$"\
-                         -v file="$inpExtTmp$"\
-                         '{ if ($0 ~ dir) {f = 1; next}
-                            if ($0 ~ "^/.*:$") {f = 0}
-                            if (f ==1 && $1 ~ file && NF > 1) {print $0} 
-                         }' "$inpDataInfo"
-                  )"
-    else
-      posEndTmp=."$(JoinToStr ".|." "${posEnd[@]}")."
-      readarray -t inpName <<<\
-                "$(awk -F "\t"\
-                       -v dir="$inpPath:$"\
-                       -v file="$posEndTmp"\
-                       -v ext="$inpExt$"\
-                       '{ if ($0 ~ dir) {f = 1; next}
-                          if ($0 ~ "^/.*:$") {f = 0}
-                          if (f==1 && $1 !~ file && $1 ~ ext && NF > 1)
-                             {print $0}
-                       }' "$inpDataInfo"
-                 )"
-    fi
-
-    if [[ -z $(RmSp "$inpName") ]]; then
-         eval $i"Num=0"
-        continue
-    fi
-
-    # Fill variables with full path to files and size
-    for j in "${!inpName[@]}"; do
-      strTmp=(${inpName[$j]})
-      eval $i"Size[\"$j\"]=${strTmp[1]}"
-      eval $i"Name[\"$j\"]=$inpPath\"${strTmp[0]}\""
-    done
-    
-    eval $i"Num=\${#inpName[@]}" #repNum
-  done
-fi
+DetectInput "$inpDataInfo" "2" "rep" "ctl" "$inpExt"\
+            "$isInpNested" "true"
 
 if [[ "$repNum" -eq 0 && "$ctlNum" -eq 0 ]]; then
     ErrMsg "No input is provided"
