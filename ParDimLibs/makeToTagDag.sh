@@ -50,7 +50,7 @@ posArgs=("inpExt" "isInpNested"
          "exePath" "funcList")
 
 inpExt="bam" #extension of original input data (before tagStage)
-isInpNested="true"	#if all files in one dir or in subdirs: rep$i, ctl$i
+isInpNested="true" #if all files in one dir or in subdirs: rep$i, ctl$i
 exePath="$homePath/exeAquas.sh"
 funcList="$homePath/funcList.sh"
 
@@ -61,7 +61,7 @@ if [[ -z $(RmSp "$resPath") ]]; then
     posArgs=("${posArgs[@]}" "resPath")
 fi
 
-ReadArgs "$argsFile" "1" "PreAquas" "${#posArgs[@]}" "${posArgs[@]}" > /dev/null
+ReadArgs "$argsFile" "1" "${curScrName%.*}" "${#posArgs[@]}" "${posArgs[@]}" > /dev/null
 PrintArgs "$curScrName" "${posArgs[@]}" "jobsDir"
 
 for i in exePath funcList resPath; do

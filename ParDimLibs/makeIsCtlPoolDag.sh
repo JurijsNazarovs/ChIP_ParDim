@@ -42,14 +42,13 @@ if [[ -z $(RmSp "$resPath") ]]; then
     posArgs=("${posArgs[@]}" "resPath")
 fi
 
-ReadArgs "$argsFile" "1" "Preaquas" "${#posArgs[@]}" "${posArgs[@]}" > /dev/null
+ReadArgs "$argsFile" "1" "${curScrName%.*}" "${#posArgs[@]}" "${posArgs[@]}" > /dev/null
 if [[ "${resPath:0:1}" != "/" ]]; then
     ErrMsg "The full path for resPath has to be provided.
            Current value is: $resPath ."
 fi
 
 PrintArgs "$curScrName" "${posArgs[@]}" "jobsDir"
-
 ChkValArg "isInpNested" "" "true" "false"
 
 
