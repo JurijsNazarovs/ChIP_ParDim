@@ -91,7 +91,8 @@ if [[ -z $(RmSp "$resPath") ]]; then
     posArgs=("${posArgs[@]}" "resPath")
 fi
 
-ReadArgs "$argsFile" "1" "Aquas" "${#posArgs[@]}" "${posArgs[@]}" > /dev/null
+ReadArgs "$argsFile" "1" "${curScrName%.*}" "${#posArgs[@]}" "${posArgs[@]}"\
+         > /dev/null
 PrintArgs "$curScrName" "${posArgs[@]}" "jobsDir"
 
 for i in exePath postScript funcList resPath; do
@@ -189,7 +190,7 @@ if [[ "$isInpNested" = true ]]; then
                                     if (f == 1 && $1 ~ file) {print $1} 
                                  }' "$inpDataInfo"
                            )"
-                isCtlPoolTm p=() #files with pool.true or pool.false at the end
+                isCtlPoolTmp=() #files with pool.true or pool.false at the end
                 for k in "${strTmp[@]}"; do
                   if [[ "${k##*.}" = true || "${k##*.}" = false ]]; then
                       isCtlPoolTmp=("${nPool[@]}" "${k##*.}")
@@ -474,7 +475,6 @@ fi
 ## xcor
 if [[ "$firstStage" -le "$xcorStage" && "$lastStage" -ge "$xcorStage" ]]; then
     jobName="$xcorName"
-    inpExt="tagAlign.gz"
 
     PrintfLine >> "$dagFile"
     printf "# $jobName\n" >> "$dagFile" 
@@ -557,7 +557,6 @@ fi
 if [[ "$firstStage" -le "$poolStage" && "$lastStage" -ge "$poolStage" &&\
           "$repNum" -ge "2" ]]; then
     jobName="$poolName"
-    inpExt="tagAlign.gz"
     jobArgsFile=() #here we have several arguments files
 
     PrintfLine >> "$dagFile"
@@ -898,8 +897,7 @@ if [[ $firstStage -le $idrOverlapStage && $lastStage -ge $idrOverlapStage &&\
     jobArgsFileTmp=("$jobsDir/tmp.args")
 
     if [[ -z $(RmSp "$specName") ]]; then #just for idr
-        ErrMsg "For $stIter chromosome size, species name and species list
-              should be defined."
+        ErrMsg "For $stIter species name should be defined."
     fi
 
     for i in specList chrmSz; do  #just for idr
