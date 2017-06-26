@@ -42,7 +42,8 @@ if [[ -z $(RmSp "$resPath") ]]; then
     posArgs=("${posArgs[@]}" "resPath")
 fi
 
-ReadArgs "$argsFile" "1" "${curScrName%.*}" "${#posArgs[@]}" "${posArgs[@]}" > /dev/null
+ReadArgs "$argsFile" "1" "${curScrName%.*}" "${#posArgs[@]}" "${posArgs[@]}"\
+         > /dev/null
 if [[ "${resPath:0:1}" != "/" ]]; then
     ErrMsg "The full path for resPath has to be provided.
            Current value is: $resPath ."
@@ -53,6 +54,7 @@ ChkValArg "isInpNested" "" "true" "false"
 
 
 ## Detect reps and ctls
+inpPath="$(awk 'NR==1{print $1; exit}' "$inpDataInfo")"
 DetectInput "$inpDataInfo" "2" "rep" "ctl" "$inpExt"\
             "$isInpNested" "true"
 
@@ -108,7 +110,7 @@ printf "VARS $jobId repName=\"$(JoinToStr "," "${repName[@]##*/}")\"\n"\
        >> "$dagFile"
 printf "VARS $jobId ctlName=" >> "$dagFile"
 printf "\"$(JoinToStr "," "${ctlName[@]##"$inpPath"}")\"\n"\
-       >> "$dagFile"
+       >> "$dagFile" #delete inpPath to keep ctl dirs structure
 
 
 printf "VARS $jobId transOut=\"$transOut.tar.gz\"\n" >> "$dagFile"
