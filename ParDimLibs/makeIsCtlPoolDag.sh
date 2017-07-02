@@ -55,7 +55,7 @@ ChkValArg "isInpNested" "" "true" "false"
 
 ## Detect reps and ctls
 inpPath="$(awk 'NR==1{print $1; exit}' "$inpDataInfo")"
-inpPath="${inpPath%:}"
+inpPath="${inpPath%:}/"
 DetectInput "$inpDataInfo" "2" "rep" "ctl" "$inpExt"\
             "$isInpNested" "true"
 
