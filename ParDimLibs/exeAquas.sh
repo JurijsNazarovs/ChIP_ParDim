@@ -5,7 +5,8 @@
 #========================================================
 ## Libraries and options
 shopt -s extglob #to use !
-source "funcList.sh" #need to transfer
+homePath="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )" 
+source "$homePath"/funcList.sh #need to transfer
 
 curScrName=${0##*/} #delete last backSlash
 EchoLineBold
@@ -39,8 +40,7 @@ fi
 
 ## Read parameters from the file
 i=0
-while read  firstCol restCol #do like that because there might be spaces in names
-do
+while read  firstCol restCol; do
 	varsList[$i]="$firstCol" #all variables from the file
 	valsList[$i]="$restCol" #all values of variables from the file
 	((i++))
