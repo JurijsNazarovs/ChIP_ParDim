@@ -82,7 +82,7 @@ DetectInput "$inpDataInfo" "2" "rep" "ctl" "$inpExt"\
             "$isInpNested" "true"
 
 if [[ "$repNum" -eq 0 && "$ctlNum" -eq 0 ]]; then
-    ErrMsg "No input is provided"
+    ErrMsg "No input files are detected"
 fi
 
 
