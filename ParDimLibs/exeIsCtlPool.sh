@@ -10,12 +10,12 @@
 ## Libraries and options
 shopt -s nullglob #allows create an empty array
 shopt -s extglob #to use !
-source "./funcList.sh" #need to transfer
+homePath="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )" 
+source "$homePath"/funcList.sh #need to transfer
 
 curScrName=${0##*/} #delete last backSlash
 EchoLineBold
 echo "[Start] $curScrName"
-
 
 ## Input and default values
 repName=$1
