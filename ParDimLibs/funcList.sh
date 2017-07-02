@@ -62,9 +62,9 @@ JoinToStr(){
 
   local i
   for i in "$@"; do
-    if [[ -n $(RmSp "$i") ]]; then
-         args="$args$spC$i"
-    fi
+    #if [[ -n $(RmSp "$i") ]]; then
+    args="$args$spC$i"
+    #fi
   done
 
   echo "$args"    
@@ -715,7 +715,7 @@ DetectInput(){
   # It returns names and size of founded corresponded files
   # Usage:
   #  DetectInput "$inpDataInfo" "${#inpType[@]}" "${inpType[@]}" "$inpExt"\
-      #        "true" "true" "true"
+  #        "true" "true" "true"
   # Output:
   #  repName, repSize, repNum, useCtlPool
   
@@ -725,7 +725,7 @@ DetectInput(){
   shift
   local inpTypeNum=${1:-"0"} #size of inpType array
   shift
-  
+  local inpType=()
   if [[ $inpTypeNum -eq 0 ]]; then
       ErrMsg "No input to detect is provided"
   else
@@ -749,7 +749,7 @@ DetectInput(){
   local inpPath="$(awk 'NR==1{print $1; exit}' "$inpDataInfo")"
   inpPath="${inpPath%:}"
   if [[ "$isInpNested" = true ]]; then
-      local inpPathTmp="$inpPath"align
+      local inpPathTmp="$inpPath"/align
 
       local i
       for i in "${inpType[@]}"; do
@@ -828,7 +828,7 @@ DetectInput(){
         eval $i"Num=\${#"$i"Name[@]}" #repNum
       done
   else  #all files in one directory
-    local posEnd=("ctl" "dnase")
+    local posEnd=("ctl" "dnase") #might be extended to detect rep
 
     local i
     for i in "${inpType[@]}"; do
@@ -854,7 +854,7 @@ DetectInput(){
                             if (f ==1 && $1 ~ file && NF > 1) {print $0} 
                          }' "$inpDataInfo"
                   )"
-      else
+      else #to detect rep
         local posEndTmp=."$(JoinToStr ".|." "${posEnd[@]}")."
         readarray -t inpName <<<\
                   "$(awk -F "\t"\
@@ -881,7 +881,7 @@ DetectInput(){
         if [[ "$isDetectSize" = true ]]; then
             eval $i"Size[\"$j\"]=${strTmp[1]}"
         fi
-        eval $i"Name[\"$j\"]=$inpPath\"${strTmp[0]}\""
+        eval $i"Name[\"$j\"]=$inpPath/\"${strTmp[0]}\""
 
         # Detect the pool flag for ctlName[$j]
         if [[ "$isDetectPool" = true ]]; then
