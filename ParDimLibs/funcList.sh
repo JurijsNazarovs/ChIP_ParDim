@@ -683,8 +683,7 @@ PrintArgs(){
   
   local i
   local argSize
-  for i in ${posArgs[@]}
-  do
+  for i in ${posArgs[@]}; do
     eval "printf \"%-$((maxLenArg + 3))s %s \n\"\
                  \"- $i\" \"$"$i"\" "
   done
