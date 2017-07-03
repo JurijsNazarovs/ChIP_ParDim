@@ -3,7 +3,7 @@
 # This script creates a right version of a dag file to trim files
 #
 # 2 possible ways to read input files: nested - rep/ctl dirs, not nested - all
-# files are in 1 dir.
+# files are in one directory.
 # 
 # Input:
 #	- argsFile	 file with all arguments for this shell		
@@ -27,17 +27,20 @@ transOut=${7:-"Trim"}
 
 
 ## Default values, which can be read from the $argsFile
-posArgs=("isInpNested"
-         "exePath"
+posArgs=("exePath"
+         "funcList"
+         "isInpNested"
          "inpExt"
          "inpType"
          "trimLen"
          "isOrigName")
 
-isInpNested="true" #inside rep/ctl dirs or not
 exePath="$homePath/exeTrim.sh"
+funcList="$homePath/funcList.sh"
+
+isInpNested="true" #inside rep/ctl dirs or not
 inpExt="fastq.gz"
-inpType="rep, ctl"
+inpType="rep, ctl" #rep,ctl,dnase
 trimLen=""
 isOrigName=true
 softZip="Trimmomatic-0.36.zip"
@@ -48,10 +51,14 @@ fi
 
 ReadArgs "$argsFile" "1" "${curScrName%.*}" "${#posArgs[@]}" "${posArgs[@]}"\
          > /dev/null
-if [[ "${resPath:0:1}" != "/" ]]; then
-    ErrMsg "The full path for resPath has to be provided.
-           Current value is: $resPath ."
-fi
+
+for i in exePath funcList resPath; do
+  eval "strTmp=\"\$$i\""
+  if [[ "${strTmp:0:1}" != "/" ]]; then
+    ErrMsg "The full path for $i has to be provided:
+           Current value is: $strTmp"
+  fi
+done
 
 PrintArgs "$curScrName" "${posArgs[@]}" "jobsDir"
 
@@ -59,6 +66,7 @@ PrintArgs "$curScrName" "${posArgs[@]}" "jobsDir"
 ## Initial checking
 ChkValArg "isInpNested" "" "true" "false"
 ChkValArg "isOrigName" "" "true" "false"
+
 if [[ -n $(RmSp "$trimLen") && ! "$trimLen" =~ ^[0-9]+$ ]] ; then
     ErrMsg "The trimming length has to be an integer number or empty"
 fi
@@ -125,7 +133,7 @@ mkdir -p "$conOut"
 transFiles=("${repName[@]}"
             "${ctlName[@]}"
             "${dnaseName[@]}"
-            "${exePath%/*}"/funcList.sh
+            "$funcList.sh"
             "http://proxy.chtc.wisc.edu/SQUID/nazarovs/$softZip")
 transFiles="$(JoinToStr ", " "${transFiles[@]}")"
 

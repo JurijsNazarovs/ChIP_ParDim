@@ -1,25 +1,9 @@
 #!/bin/bash
 #===============================================================================
-# This script creates a right version of a dag file of AQUAS pipeline,
-# base on files in input directory (inpPath)
-#
-# The script supports a range of stages (first stage - last stage),
-# according to which AQUAS pipeline should be executed and
-# corresponding dag file should be constructed.
-
-# This script can stop on any of a supported last stages, but 
-# it CANNOT start with some first stage, if the script was not run
-# until this first stage before.
-# In other words, first stage works like a check point for current pipeline.
-#
-# Supported stages in an order:
-#	- toTag. Not in this script, but in the whole pipeline
-#	- pseudo
-#	- xcor
-#	- pool
-#	- stgMacs2
-#	- peaks
-#	- idroverlap 
+# This script creates a right version of a dag file to transform from bam to tag
+# Script accepts 2 extension: bam and filt_bam.
+# If bam is provided then scripts filtrs it, by deleting duplicates and
+# create a tagalign file.
 # Input:
 #	- argsFile	 file with all arguments for this shell
 #
@@ -46,13 +30,16 @@ outPath="$resPath/$resDir" #Used as input for stages after job was done
 
 
 ## Default values, which can be read from the $argsFile
-posArgs=("inpExt" "isInpNested"
-         "exePath" "funcList")
+posArgs=("exePath"
+         "funcList"
+         "inpExt"
+         "isInpNested")
+
+exePath="$homePath/exeAquas.sh"
+funcList="$homePath/funcList.sh"
 
 inpExt="bam" #extension of original input data (before tagStage)
 isInpNested="true" #if all files in one dir or in subdirs: rep$i, ctl$i
-exePath="$homePath/exeAquas.sh"
-funcList="$homePath/funcList.sh"
 
 softTar="pipeInstallFiles.new.tar.gz"
 softSize=9

@@ -1,14 +1,16 @@
 #!/bin/bash
 #===============================================================================
 # This script creates a right version of a dag file to decide if ctl should be
-# pooled. It is a pre script of AQUAS pipeline.
+# pooled. It is a pre-script of AQUAS pipeline.
 #
 # 2 possible ways to read input files: nested - rep/ctl dirs, not nested - all
 # files are in 1 dir.
 # 
 # Input:
-#	- argsFile	 file with all arguments for this shell		
-#==============================================================================
+#     - argsFile - file with all arguments for this shell
+# Output:
+#     for every control file there is a flag file with true/false to pool 
+#===============================================================================
 ## Libraries and options
 shopt -s nullglob #allows create an empty array
 homePath="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )" 
@@ -28,13 +30,16 @@ transOut=${7:-"isPool"}
 
 
 ## Default values, which can be read from the $argsFile
-posArgs=("isInpNested"
-         "exePath"
+posArgs=("exePath"
+         "funcList"
+         "isInpNested"
          "ctlDepthRatio"
          "inpExt")
 
-isInpNested="true" #inside rep/ctl dirs or not
 exePath="$homePath/exeIsCtlPool.sh"
+funcList="$homePath/funcList.sh"
+
+isInpNested="true" #inside rep/ctl dirs or not
 ctlDepthRatio="1.2"
 inpExt="tagAlign.gz"
 
@@ -44,10 +49,14 @@ fi
 
 ReadArgs "$argsFile" "1" "${curScrName%.*}" "${#posArgs[@]}" "${posArgs[@]}"\
          > /dev/null
-if [[ "${resPath:0:1}" != "/" ]]; then
-    ErrMsg "The full path for resPath has to be provided.
-           Current value is: $resPath ."
-fi
+
+for i in exePath funcList resPath; do
+  eval "strTmp=\"\$$i\""
+  if [[ "${strTmp:0:1}" != "/" ]]; then
+    ErrMsg "The full path for $i has to be provided:
+           Current value is: $strTmp"
+  fi
+done
 
 PrintArgs "$curScrName" "${posArgs[@]}" "jobsDir"
 ChkValArg "isInpNested" "" "true" "false"
@@ -92,8 +101,7 @@ conOut="$jobsDir/conOut"
 mkdir -p "$conOut"
 
 # Transfered files
-transFiles=$(JoinToStr ", " "${repName[@]}" "${ctlName[@]}"\
-                       "${exePath%/*}"/funcList.sh)
+transFiles=$(JoinToStr ", " "${repName[@]}" "${ctlName[@]}" "$funcList")
 
 # Main condor file
 conFile="$jobsDir/${curScrName%.*}.condor"

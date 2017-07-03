@@ -100,7 +100,7 @@ for i in exePath postScript funcList resPath; do
   if [[ "${strTmp:0:1}" != "/" ]]; then
     ErrMsg "The full path for $i has to be provided:
            Current value is: $strTmp"
-fi
+  fi
 done
 
 firstStage=$(MapStage "$firstStage")
