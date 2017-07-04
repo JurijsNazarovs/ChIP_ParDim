@@ -1,0 +1,82 @@
+This file describes how to create an installation file to run Aquas pipeline
+using ParDim.
+
+
+[1] Java
+Download version of java > 1.8 in tar.gz format from
+http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html
+The webpage does not provide the link, so, you might download on local machine,
+scp on server and transfer the file using condor to the condor interactive job.
+
+[2] Condor interactive job
+Create a condor interactive job with transferring all necessary files and
+condor_ssh to there (however, with interactive job it happens automatically).
+export HOME="$PWD"
+ 
+[3] Java
+$ tar -xzf jdk-8u131-linux-x64.tar.gz
+$ JAVA_HOME="$PWD"/jdk1.8.0_131
+$ export PATH="$JAVA_HOME/bin:$PATH"
+
+[4] Anaconda/Miniconda3
+The following command is for Anaconda Python3 on 64bit Linux system.
+$ wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+$ bash Miniconda3-latest-Linux-x86_64.sh -b -p "$PWD/miniconda3"
+$ export PATH="$PWD/miniconda3/bin:$PATH"
+$ rm -rf Miniconda3-latest-Linux-x86_64.sh
+
+[5] BDS
+Install BigDataScript v0.999l on your system.
+$ wget https://github.com/leepc12/BigDataScript/blob/master/distro/bds_Linux.tgz?raw=true -O bds_Linux.tgz
+$ tar zxvf bds_Linux.tgz #creates .bds directory
+$ export PATH="$PWD/.bds:$PATH"
+$ rm -rf bds_Linux.tgz
+#If Java memory occurs, add
+#$ export _JAVA_OPTIONS="-Xms256M -Xmx728M -XX:ParallelGCThreads=1" too.
+
+[6] Aquas
+$ git clone https://github.com/kundajelab/TF_chipseq_pipeline
+$ cd $HOME/TF_chipseq_pipeline
+$ ./install_dependencies.sh
+$ cd $HOME
+$ cp $HOME/miniconda3/pkgs/mysql-5.5.24-0/lib/libmysqlclient.so.18.0.0 $HOME/miniconda3/envs/aquas_chipseq_py3/lib/libmysqlclient.so.18
+$ rm -rf $HOME/miniconda3/pkgs/*.tar.bz2 #make final tar lighter
+
+[5] bedclip and etc from ucsc. 
+
+Namely:
+
+ucsc-bedclip-332-0/
+ucsc-bedgraphtobigwig-332-0/
+ucsc-bigwiginfo-332-0/
+ucsc-wigtobigwig-332-0/
+
+Problems: no shared libraries in /usr/lib64/
+
+1. libmysqlclient.so.18 #found here: /u/n/a/nazarovs/miniconda3/pkgs/mysql-5.5.24-0/lib
+2. libpng16.so.16 # found here: /u/n/a/nazarovs/miniconda3/pkgs/libpng-1.6.17-0/lib AND here: /u/n/a/nazarovs/miniconda3/envs/aquas_chipseq_py3/lib
+3. /lib64/libz.so.1: version `ZLIB_1.2.3.4' # found here: /u/n/a/nazarovs/miniconda3/envs/aquas_chipseq_py3/lib
+
+Solution 1:
+1. export LD_LIBRARY_PATH=/u/n/a/nazarovs/miniconda3/pkgs/mysql-5.5.24-0/lib:${LD_LIBRARY_PATH}
+2. export LD_LIBRARY_PATH=/u/n/a/nazarovs/miniconda3/pkgs/libpng-1.6.17-0/lib:${LD_LIBRARY_PATH}
+3. export LD_LIBRARY_PATH=/u/n/a/nazarovs/miniconda3/envs/aquas_chipseq_py3/lib:${LD_LIBRARY_PATH}
+
+Solution 2 (shorter): 
+1. cp $HOME/miniconda3/pkgs/mysql-5.5.24-0/lib/libmysqlclient.so.18.0.0 $HOME/miniconda3/envs/aquas_chipseq_py3/lib/libmysqlclient.so.18 
+2. export LD_LIBRARY_PATH=/u/n/a/nazarovs/miniconda3/envs/aquas_chipseq_py3/lib:${LD_LIBRARY_PATH} #add in shared library
+
+[6] Graphviz 
+WARNING: "/afs/cs.wisc.edu/u/n/a/nazarovs/miniconda3/pkgs/graphviz-2.38.0-1/lib/graphviz/libgvplugin_pango.so.6" - file not found, but it exists
+
+Solution 1:
+This warning should be ignored since it relates with some updates of files. And once updates are failed, the warning occurs. 
+
+Solution 2:
+http://stackoverflow.com/questions/30326511/getting-xhprof-visualization-issues-with-graphviz-and-dot-working
+
+[7] able to do checkpoints
+In bds.config in .bds folder change:
+# checkpoint disabled
+#disableCheckpoint = true
+
