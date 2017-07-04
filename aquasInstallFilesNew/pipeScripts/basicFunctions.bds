@@ -241,12 +241,19 @@ int getNumInpCmd(string[] key, bool exact) {
        for (string k : key){	
 	     for (int i = 0; i < args.size(); i++){
 		   argTmp := args[i].split("[1-9][0-9]*")
-		   if (argTmp.size() == 1){
-			arg := argTmp[0]
-			if (arg == args[i]) continue #i.e. we catch the exact match
-			   if (arg.toLower().trim() == "-" + k.toLower()) numInp++
-		      }
-		 }		
+                   // old version, since before "tag2".split("[1-9]") returns
+                   // tag. Now it returns [tag, '']
+		   // if (argTmp.size() == 1){
+		   //      arg := argTmp[0]
+		   //      if (arg == args[i]) continue #i.e. we catch the exact match
+                   //      if (arg.toLower().trim() == "-" + k.toLower()) numInp++
+                   //                                                         }
+
+                     if (argTmp.size() == 2 && argTmp[1].isEmpty()){
+                       arg := argTmp[0]
+                       if (arg.toLower().trim() == "-" + k.toLower()) numInp++
+                                                                          }
+             }		
 	   }
      }
 
