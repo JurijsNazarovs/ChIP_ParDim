@@ -2,7 +2,8 @@
 echo [Start] Path preparation
 
 ## Software Pathes
-export homePath=$PWD
+export HOME="$PWD"
+export homePath="$PWD"
 mkdir -p "$homePath/tmp" #because some function might use it
 PATH="$homePath:$PATH"
 PATH="$homePath/.bds:$homePath/jdk1.8.0_92/bin:$homePath/miniconda3/bin:$PATH"
@@ -10,7 +11,7 @@ export PATH
 
 
 ## Shared libraries
-LD_LIBRARY_PATH=$homePath/miniconda3/envs/aquas_chipseq_py3/lib:$LD_LIBRARY_PATH
+LD_LIBRARY_PATH="$homePath/miniconda3/envs/aquas_chipseq_py3/lib:$LD_LIBRARY_PATH"
 export LD_LIBRARY_PATH
 
 
