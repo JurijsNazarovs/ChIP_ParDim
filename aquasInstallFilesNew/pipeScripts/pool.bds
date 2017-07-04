@@ -1,0 +1,110 @@
+#!/usr/bin/env bds
+#vim: syntax=java
+
+## Prior parameters
+include "basicFunctions"
+
+## Main body
+main() 
+
+## Functions description
+
+void main() { 
+	out_dir = mkdir(out_dir)
+	string[] tags #array of input tags
+	int numRep
+
+	init_chipseq()
+	pool_tags()
+}
+
+void init_chipseq() {
+
+	## Initial checking
+	errorMsg("true_rep")
+	errorMsg("rep")
+
+	## Check the input	
+	possibleInps := "tag"
+	numRep = getNumInpCmdChk(possibleInps)
+
+	# Important to have more than 1 tag!
+	if (numRep <= 1) error ("There are no more than 1 tag. Pool is impossible!\n\
+		Tags should be provided sequentially, i.e. tag1, tag2, ...\n\
+		To indicate the ctl input use an option \"-ctl <0,1>\".\n")
+
+	## Read Parameters	
+	ctl = getN("ctl") #control or just replicates
+	pr = getN("pr") #pseudo replicates or not. pr = 0 => true_replicate
+
+	## Read the input
+	# We read ctl_tags as tags, because we want to have the same command line, using -tag as an input
+	# and variable ctl is in response for control indicator
+
+	for (int rep = 1; rep <= numRep; rep++){
+		tag_ := get(possibleInps + rep)
+		chkInpFile(tag_, possibleInps + rep, 1)
+		tags.add(tag_)
+	}
+}
+
+void pool_tags() {
+
+	print("\n\n[Start] Pool \n")
+
+	string o_dir #output directory for pooled tags
+	string label #label for _pool_tag function
+	string graphvizOutId
+	string[] graph_inLabel
+	string filetableOutHrchy
+	string filetableOutPath
+
+	## Labels, directories and etc for _pool_tag function
+	if(pr == 0){ #true replciates
+		if(ctl == 0){ #not ctl
+ 			o_dir = mkdir("$out_dir/align/pooled_rep")
+			label = "reps"
+			for (int i = 1; i <= numRep; i++){
+				graph_inLabel[i-1] = "tagalign_(rep$i)"
+			}
+			graphvizOutId = "tagalign_(pooled)"
+			filetableOutHrchy = "L1_align/pooled_rep/tagalign"
+			filetableOutPath = "tag_pooled"
+		} else { #ctl
+			o_dir = mkdir("$out_dir/align/pooled_ctl")
+			label = "ctls"
+			for (int i = 1; i <= numRep; i++){
+				graph_inLabel[i-1] = "tagalign_(ctl$i)"
+			}
+			graphvizOutId = "tagalign_(pooled)"
+			filetableOutHrchy = "L1_align/pooled_ctl/tagalign"
+			filetableOutPath = "tag_ctl_pooled"
+		}
+	} else { #pseudo replicates
+		if(ctl == 0){ #not ctl
+		 	o_dir   = mkdir("$out_dir/align/pooled_pseudo_reps/ppr$pr")
+			label = "reps-pr$pr"
+			for (int i = 1; i <= numRep; i++){
+				graph_inLabel[i-1] = "tagalign_(rep$i-pr$pr)"
+			}
+			graphvizOutId = "tagalign_(ctl, pooled)"
+			filetableOutHrchy = "L1_align/pooled_pseudo_reps/ppr$pr/tagalign"
+			filetableOutPath = "tag_ppr$pr"
+		} else {
+			error("Ctl cant be pseudo replicate. Pool is impossible. Check if ctl corresponds to file types.")
+		}
+	}
+
+	## Pool tags
+	tag_pooled := _pool_tag(tags, o_dir, label)
+
+	## Graphviz, filetable for pooled tagalign
+	string[] graph_in
+	for (int i = 1; i <= tags.size(); i++) graph_in.add(graph_inLabel[i-1])
+	
+	wait #for tag_pooled
+	_add_to_graphviz(graph_in, tags, [graphvizOutId], [tag_pooled])
+	_add_to_filetable([filetableOutHrchy], [filetableOutPath])
+
+	print("\n[Done] Pool \n\n")
+}
