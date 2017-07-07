@@ -39,13 +39,14 @@ argsFile=${1:-"args.listDev"}
 argsFile="$(readlink -m "$argsFile")"
 shift
 isAppend=${1:-"false"}
+ChkValArg "isAppend" "" "true" "false"
 shift
 tasks=("$@")
 
 
 ## Creating the argsFile
 if ! [[ -f "$argsFile" && "$isAppend" = true ]]; then
-    echo "File $argsFile is created"
+    echo "File $argsFile is creating"
     printf "" > "$argsFile"
 else
   echo "$argsFile is going to be updated"
