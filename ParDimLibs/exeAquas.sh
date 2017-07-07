@@ -2,6 +2,11 @@
 #========================================================
 # This is a general execution file for condor,
 # which executes specific part of the AQUAS pipeline
+#
+# Possible error codes:
+# 1 - general error
+# 2 - cannot install software
+# signal SEGV - segmentation fault, which is 11
 #========================================================
 ## Libraries and options
 shopt -s extglob #to use !
@@ -23,19 +28,24 @@ isDry=${6:-true}
 
 ## Installation
 #untar and turn off the warning about time
-tar -xzf "$softTar" --warning=no-timestamp 
-rm "$softTar"
+tar -xzf "$softTar" --warning=no-timestamp
+if [[ $? -ne 0  ]]; then
+    ErrMsg "Software was not unpacked successfully" 2
+else
+  rm "$softTar"
+fi
 
+EchoLineSh
 echo "BASH: $BASH_VERSION"
 echo "ZSH: $ZSH_VERSION"
 ls
+EchoLineSh
 
-source ./pipePath.source
-bash ./pipeInstall.sh
+source "./pipePath.source"
+bash "./pipeInstall.sh"
 if [[ $? -ne 0  ]]; then
     ErrMsg "Software was not installed successfully"
 fi
-
 
 
 ## Read parameters from the file
@@ -48,7 +58,7 @@ done < "$argsFile"
 
 # Check consistency of # of vars and vals
 argsNum=${#varsList[@]}
-if [[ "$argsNum" -ne "${#valsList[@]}" ]]; then #fix later to put in the file and break dag
+if [[ "$argsNum" -ne "${#valsList[@]}" ]]; then
 	ErrMsg "Wrong input! Number of vars and vals is not consistent."
 fi
 
@@ -58,7 +68,8 @@ argsStr=()
 for ((i=0; i<$argsNum; i++)); do
 	argsStr[$i]="${varsList[$i]} ${valsList[$i]}"
 done
-
+echo "Following arguments are passed to bds:
+     ${argsStr[@]}"
 
 ## Task(script) execution
 mkdir -p "$resDir"
@@ -73,10 +84,14 @@ bdsSignal=0 #to catch segmentation fault
 if [[ $bdsCode -ne 0 ]]; then
     echo "bds was not successful! Error code: $bdsCode"
     # Catching segmentation fault
-    bdsSignal=$(head -n 1 _condor_stderr |\
+    bdsSignal=$(head -n 2 _condor_stderr |\
                  awk -v segv="$(kill -l SEGV)"\
-                     '{if ($0 ~ "Segmentation fault"){print segv}
-                       else {print 0}}')
+                     '{
+                        if ($0 ~ "Segmentation fault"){
+                          print segv
+                          exit
+                        }
+                      }')
 else
   cd out
   mv !(report) ../"$resDir"

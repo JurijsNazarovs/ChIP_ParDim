@@ -54,14 +54,15 @@ getenv = true
 \n" >> "$conFile"
 
 if [[ "$isRepeat" = true ]]; then
-    nReps=10 #maximum number of times to repeat
-    # Job leaves the queue in any case except the segmentation fault
-    printf "on_exit_remove = (ExitBySignal == False) || (ExitSignal != 11)\n"\
+    nReps=5 #maximum number of times to repeat
+    # Job leaves the queue in any case except the segmentation fault - signal 11
+    # or fail to untar file - error 2
+    printf "on_exit_remove = (ExitCode != 2) && (ExitSignal != 11)\n"\
            >> "$conFile"
-
-    # Put job on hold if it was restarted > $nReps times, because of the signal
-    #printf "on_exit_hold = (NumJobStarts > $nReps) && (ExitBySignal == True)\n"\
-    #       >> "$conFile"
+    # Put job on hold if it was restarted > $nReps times, because of ...
+    printf "on_exit_hold = (NumJobStarts > $nReps) && (ExitSignal == 11 || "\
+           >> "$conFile"
+    printf "ExitCode == 2)\n" >> "$conFile"
 
     # Release job from hold because of squid:
     # The below will make sure that a job is still never released to run more

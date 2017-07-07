@@ -6,7 +6,11 @@
 #       - repName
 #	- ctlName
 #	- dnaseName
-# Output: trimmed files	
+# Output: trimmed files
+#
+# Possible error codes:
+# 1 - general error
+# 2 - cannot instal software
 #===============================================================================
 ## Libraries and options
 shopt -s nullglob #allows create an empty array
@@ -91,7 +95,7 @@ done
 ## Main part - trimming
 unzip "$softZip"
 if [[ $? -ne 0 ]]; then
-    ErrMsg "Cannot unzip $softZip"
+    ErrMsg "Cannot unzip $softZip" "2"
 else
   rm -rf "$softZip"
 fi
