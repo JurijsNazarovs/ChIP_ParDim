@@ -99,6 +99,7 @@ for task in "${tasks[@]}"; do
       printf "\n" >> "$argsFile"
       printf "isInpNested\n" >> "$argsFile"
       printf "ctlDepthRatio\n" >> "$argsFile"
+      printf "inpExt\n" >> "$argsFile"
 
       printf "\n" >> "$argsFile"
       continue
