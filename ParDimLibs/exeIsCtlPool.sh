@@ -18,11 +18,11 @@ EchoLineBold
 echo "[Start] $curScrName"
 
 ## Input and default values
-repName=$1
-ctlName=$2
-resDir=${3:-"resDir"}
-outTar=${4:-"isPool.tar.gz"} #tarFile to return back on submit machine
-ctlDepthRatio=${5:-"1.2"}
+repName=${1}
+ctlName=${2}
+resDir=${3:-resDir}
+outTar=${4:-isPool.tar.gz} #tarFile to return back on submit machine
+ctlDepthRatio=${5:-1.2}
 isDry=${6:-true}
 
 readarray -t repName <<< "$(echo "$repName" | tr "," "\n")"

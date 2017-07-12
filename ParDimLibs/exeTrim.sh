@@ -24,10 +24,10 @@ EchoLineBold
 echo "[Start] $curScrName"
 
 TrimSE(){
-  local fileInp=$1
-  local trimLen=$2
-  local isOrigName=${3:-"false"}
-  local resDir=${4:-"."}
+  local fileInp=${1}
+  local trimLen=${2}
+  local isOrigName=${3:-false}
+  local resDir=${4:-.}
   
   local fileTmp="$(mktemp -uq tmp.XXX)"
 

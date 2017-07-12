@@ -18,8 +18,8 @@ EchoLineBold
 echo "[Start] $curScrName"
 
 ## Input and default values
-script=$1
-argsFile=$2 #file w/ arguments for the bds
+script=${1}
+argsFile=${2} #file w/ arguments for the bds
 resDir=${3:-"resDir"}
 outTar=${4:-"aquas.tar.gz"} #tarFile to return back to submit machine
 softTar=${5:-"pipeInstallFiles.new.tar.gz"}

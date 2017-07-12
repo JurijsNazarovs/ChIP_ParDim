@@ -21,7 +21,7 @@ homePath="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 scriptsPath="$homePath/ParDimLibs"
 source "$scriptsPath"/funcList.sh
 
-curScrName="${0##*/}" #delete last backSlash
+curScrName=${0##*/} #delete last backSlash
 
 EchoLineBold
 echo "[Start] $curScrName"
@@ -39,10 +39,10 @@ EchoLineSh
 
 
 ## Input and default values
-argsFile="${1:-args.ChIP}"
+argsFile=${1:-args.ChIP}
 argsFile="$(readlink -m "$argsFile")"
 shift
-isAppend="${1:-false}"
+isAppend=${1:-false}
 ChkValArg "isAppend" "" "true" "false"
 shift
 tasks=("$@")
