@@ -31,7 +31,7 @@ shopt -s nullglob #allows create an empty array
 homePath="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )" 
 source "$homePath"/funcList.sh
 
-curScrName=${0##*/} #delete last backSlash
+curScrName="${0##*/}" #delete last backSlash
 
 MapStage(){
   # Function maps input to numbers for comparison purpose
@@ -51,13 +51,13 @@ MapStage(){
 
 
 ## Input and default values
-argsFile=${1:-"args.listDev"} 
-dagFile=${2:-"aquas.dag"} #create this
-jobsDir=${3:-"aquasTmp"} #working directory, provided with one of analysed dirs
-resPath=${4:-"/tmp/aquas"} #return here on submit server. Read from file if empty
-inpDataInfo=${5} #text file with input data
-resDir=${6:-"resultedDir"} #directory where to save resutls
-transOut=${7:-"aquas"}
+argsFile="${1:-args.listDev}" 
+dagFile="${2:-aquas.dag}" #create this
+jobsDir="${3:-aquasTmp}" #working directory, provided with one of analysed dirs
+resPath="${4:-/tmp/aquas}" #return here on submit server. Read from file if empty
+inpDataInfo="$5" #text file with input data
+resDir="${6:-resultedDir}" #directory where to save resutls
+transOut="${7:-aquas}"
 
 outPath="$resPath/$resDir" #used as input for stages after job was done
 
