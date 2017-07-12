@@ -10,23 +10,23 @@ homePath="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source "$homePath"/funcList.sh #call file with functions
 
 ## Input
-conFile=${1:-"condor.tmp"}
-outPath=${2:-"conOut"}
-exeFile=${3:-""}	
-args=${4:-""} #string of arguments from condor to executable" (1\ \2\ \3)
-transFiles=${5:-""} #files to transfer
+conFile="${1:-condor.tmp}"
+outPath="${2:-conOut}"
+exeFile="$3"	
+args="$4" #string of arguments from condor to executable" (1\ \2\ \3)
+transFiles="$5" #files to transfer
 
-nCpus=${6:-"1"}
-memSize=${7:-"1"}
-diskSize=${8:-"4"}
+nCpus="${6:-1}"
+memSize="${7:-1}"
+diskSize="${8:-4}"
 
-transOut=${9:-""}
-transMap=${10:-""}
+transOut="$9"
+transMap="$10"
 
-outName=${11:-"condor"}
+outName="${11:-condor}"
 
-isRepeat=${12:-"true"} #1 - repeat in case of failure
-isGluster=${14:-"false"}
+isRepeat="${12:-true}" #1 - repeat in case of failure
+isGluster="${14:-false}"
 
 
 ## Initial checking
@@ -57,7 +57,7 @@ if [[ "$isRepeat" = true ]]; then
     nReps=5 #maximum number of times to repeat
     # Job leaves the queue in any case except the segmentation fault - signal 11
     # or fail to untar file - error 2
-    printf "on_exit_remove = (ExitCode != 2) && (ExitSignal != 11)\n"\
+    printf "on_exit_remove = (ExitCode =!= 2) && (ExitSignal =!= 11)\n"\
            >> "$conFile"
     # Put job on hold if it was restarted > $nReps times, because of ...
     printf "on_exit_hold = (NumJobStarts > $nReps) && (ExitSignal == 11 || "\
