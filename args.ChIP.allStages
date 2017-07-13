@@ -6,7 +6,7 @@ isInpNested                    false
 inpExt                         fastq.gz
 inpType                        rep, ctl
 isOrigName                     true
-trimLen
+trimLen                        
 
 ##[ makeToTagDag ]##
 exePath                        /home/nazarovs/projects/ChIP_ParDim/ParDimLibs/exeAquas.sh
@@ -24,7 +24,7 @@ inpExt                         tagAlign.gz
 ctlDepthRatio                  1.2
 
 ##[ makeAquasDag ]##
-exePath                        /home/nazarovs/projects/ChIP_ParDim/ParDimLibs/exeTrim.sh
+exePath                        /home/nazarovs/projects/ChIP_ParDim/ParDimLibs/exeAquas.sh
 funcList                       /home/nazarovs/projects/ChIP_ParDim/ParDimLibs/funcList.sh
 postScript                     /home/nazarovs/projects/ChIP_ParDim/ParDimLibs/postScript.sh
 
