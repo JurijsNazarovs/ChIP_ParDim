@@ -129,8 +129,8 @@ for ((i=0; i<=1; i++)); do #0 - rep, 1 - ctl
 
     hd="${sizeTmp[$((j-1))]}" #size in bytes
     hd=$(echo $hd/1024^3 + 1 | bc) #in GB
-    ram=$((hd*2))
-    hd=$((hd + softSize)) #for software
+    ram=$hd
+    hd=$((hd + softSize + 10)) #for software
 
     PrintfLineSh >> "$dagFile"
     printf "# $jobId\n" >> "$dagFile"
