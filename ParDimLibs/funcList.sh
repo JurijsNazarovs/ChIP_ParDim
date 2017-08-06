@@ -3,7 +3,6 @@
 # File contains description of different functions
 #========================================================
 
-
 ## Different printing lines
 EchoLine(){
   echo "-------------------------------------------------------------------------------------"
@@ -775,12 +774,17 @@ DetectInput(){
                             if ($0 ~ "^/.*:$") {f = 0}
                             if (f == 1 && $1 ~ file) {print $0} 
                           }' "$inpDataInfo"
-                    )"
-	  
+                    )" #lines contain file name and size. Can return empty, but size 1
+
+          if [[ -z $(RmSp "$strTmp") ]]; then
+              eval $i"Num=0"
+              continue
+          fi
+          
 	  if [[ ${#strTmp[@]} -ne 1 ]]; then
 	      ErrMsg "Cannot detect replicate name from ${inpDir[$j]}"
 	  else #just one possible file in directory
-            strTmp=(${strTmp[@]})
+            strTmp=(${strTmp[@]}) #to create an array of name and size
             if [[ "$isDetectSize" = true ]]; then
                 eval $i"Size[\"$j\"]=${strTmp[1]}"
             fi
@@ -840,7 +844,7 @@ DetectInput(){
                        if ($0 ~ "^/.*:$") {f = 0}
                        if (f == 1 && $1 ~ file) {print $0} 
                      }' "$inpDataInfo"
-              )"
+              )" #lines contain file name and size. Can return empty, but size 1
       
       if [[ "$i" != "rep" ]]; then
           local inpExtTmp=".$i.$inpExt"
