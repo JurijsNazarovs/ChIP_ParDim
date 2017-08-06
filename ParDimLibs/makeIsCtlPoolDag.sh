@@ -69,7 +69,8 @@ DetectInput "$inpDataInfo" "2" "rep" "ctl" "$inpExt"\
             "$isInpNested" "true"
 
 if [[ "$repNum" -eq 0 ]]; then
-    ErrMsg "Number of replicates has to be more than 0"
+    ErrMsg "Number of replicates has to be more than 0.
+           Possibly wrong input extension: $inpExt"
 fi
 
 if !([[ "$ctlNum" -eq 0 || "$ctlNum" -eq 1 || "$ctlNum" -eq "$repNum" ]]); then
