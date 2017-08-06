@@ -108,6 +108,9 @@ lastStage=$(MapStage "$lastStage")
 
 ChkValArg "isInpNested" "" "true" "false"
 ChkValArg "trueRep" "" "true" "false"
+ChkValArg "inpExt" "" "nodup.tagAlign.gz"  #should be deleted later.
+#Should clean noduplicates from everywhere and use $inpExt.
+#The problem is that xcor function cuts tagAlign, tag, bed extension.
 
 if [[ "$trueRep" = "false" ]]; then
     prNum=2 
@@ -138,7 +141,7 @@ idrOverlapStage=$(MapStage "$idrName$overlapName")
 
 
 ## Detect reps and ctls
-if [[ "$lastStage" -gt "$poolStage" ]]; then
+if [[ "$lastStage" -ge "$poolStage" ]]; then
     isDetectPool=true
 else
   isDetectPool=false
@@ -161,16 +164,7 @@ fi
 ## Variables for future refences in stages after tag
 
 # Ctl
-if [[ "$inpExt" = nodup.tagAlign.gz ]]; then
-    ctlTag=("${ctlName[@]}")
-else
-  ctlTag=()
-  for ((i=0; i<$ctlNum; i++)); do
-    resPathTmp="$outPath/align/ctl$((i+1))"
-    ctlTag=("${ctlTag[@]}"
-            "$resPathTmp/$(basename ${ctlName[$i]%.$inpExt}).nodup.tagAlign.gz")
-  done
-fi
+ctlTag=("${ctlName[@]}")
 
 # Copy values for an easy use if we have one ctl and several reps
 if [[ "$ctlNum" -eq 1 && "$repNum" -ge 2 ]]; then
@@ -196,12 +190,7 @@ colNum="$repNum"
 for ((i=0; i<$rowNum; i++)); do
   for ((j=1; j<=$colNum; j++)); do
     if [[ "$i" -eq 0 ]]; then #real replicates
-        if [[ "$inpExt" = nodup.tagAlign.gz ]]; then
-            inpTmp=("${repName[$((j-1))]}")
-        else
-	  inpTmp="$outPath/align/rep$j/\
-$(basename ${repName[$((j-1))]%.$inpExt}).nodup.tagAlign.gz"
-        fi
+        inpTmp=("${repName[$((j-1))]}")
     else
       inpTmp="$outPath/align/pseudo_reps/rep$j/pr$i/\
 $(basename ${repName[$((j-1))]%.$inpExt}).nodup.pr$i.tagAlign.gz"
@@ -628,7 +617,7 @@ $strTmp.nodup.pr${j}_pooled.tagAlign.gz"
 	    fi
 	else #separately for replicates
 	  # Ctl
-	  inpCtlTmp="${ctlTag[$((i-1))]}" #considering if ctlNum>1 or notxs
+	  inpCtlTmp="${ctlTag[$((i-1))]}" #considering if ctlNum>1 or not
 	  # Xcor
           inpXcorTmp=()
 	  inpXcorTmp="$outPath/qc/rep$i/\
