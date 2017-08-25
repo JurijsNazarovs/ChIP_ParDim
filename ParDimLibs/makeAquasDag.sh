@@ -85,7 +85,7 @@ specList="spec.list"	#list with all species
 chrmSz="" #for stg and peaks
 blackList="" #for peaks
 softTar="pipeInstallFiles.new.tar.gz"
-softSize=9
+softSize=13
 
 if [[ -z $(RmSp "$resPath") ]]; then
     posArgs=("${posArgs[@]}" "resPath")
@@ -651,7 +651,7 @@ $(basename ${repName[$((i-1))]%.$inpExt}).nodup.15M.cc.qc"
               ram=$((hd*2))
 	  else
 	    nCoresTmp=$coresPeaks
-            ram=$((hd + 2*nCoresTmp))
+            ram=$((hd + 2*nCoresTmp + 3))
 	  fi
 
           hd=$((hd + softSize)) #for software
