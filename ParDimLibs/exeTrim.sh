@@ -6,7 +6,16 @@
 #       - repName
 #	- ctlName
 #	- dnaseName
+#       - isOrigName: false => save with additional .trim.
 # Output: trimmed files
+#
+# Possible trimming:
+# 0. Use trimLen if provided
+# 1. Detect min length for all files
+# 2.1. rep > 0, ctl > 0: trim using min(minRep(i), minCtl(i))
+# 2.2. rep > 0, ctl = 0: trim using minRep(i)
+# 2.3. rep = 0, ctl > 0: trim using minCtl(i)
+# 3. dnase > 0: trim using minDnase(i)
 #
 # Possible error codes:
 # 1 - general error
@@ -22,72 +31,81 @@ curScrName=${0##*/} #delete last backSlash
 trimSoft="Trimmomatic-0.36/trimmomatic-0.36.jar"
 EchoLineBold
 echo "[Start] $curScrName"
+ls
 
 TrimSE(){
   local fileInp=${1}
   local trimLen=${2}
   local isOrigName=${3:-false}
   local resDir=${4:-.}
-  
-  local fileTmp="$(mktemp -uq tmp.XXX)"
 
-  java -jar "$trimSoft" SE "$fileInp" "$fileTmp"\
+  ## Detect output name
+  local fileOut
+  if [[ "$isOrigName" = true ]]; then
+        fileOut="$resDir/$(basename "$fileInp")"
+  else
+    readarray -t fileOut <<< "$(echo "$fileInp" | tr "." "\n")"
+    fileOut=($(JoinToStr "." "${fileOut[0]}" trim "${fileOut[@]:1}"))
+    fileOut="$resDir/$(basename "$fileOut")"
+  fi
+  mkdir -p "$resDir"
+
+  ## Trimming
+  java -jar "$trimSoft" SE "$fileInp" "$fileOut"\
        CROP:"$trimLen"
-
+  
   if [[ $? -ne 0 ]]; then
+      if [[ -f "$fileOut"  ]]; then
+          rm -rf "$fileOut"
+      fi
+      mv !("$resDir") "$resDir"
+      mv "$resDir"/_condor_std* ./
       ErrMsg "$fileInp was not trimmed.
              Process is stopped."
-      if [[ -f "$fileTmp"  ]]; then
-          rm -rf "$fileTmp"
-      fi
   else
-    mkdir -p "$resDir"
-    
-    if [[ "$isOrigName" = true ]]; then
-        strTmp="$resDir/$(basename "$fileInp")"
-        echo "$strTmp"
-        mv "$fileTmp" "$strTmp"
-    else
-      readarray -t strTmp <<< "$(echo "$fileInp" | tr "." "\n")"
-      strTmp=($(JoinToStr "." "${strTmp[0]}" trim "${strTmp[@]:1}"))
-      strTmp="$resDir/$(basename "$strTmp")"
-      echo "$strTmp"
-      mv "$fileTmp" "$strTmp"
-    fi
-
-    if [[ $? -ne 0 ]]; then
-        ErrMsg "Not able to move $fileTmp to $strTmp"
-    fi
+    echo "Trimmed: $fileInp -> $fileOut"
   fi
 }
 
 
 ## Input and default values
-repName=$1
-ctlName=$2
-dnaseName=$3
-trimLen=$4
-isOrigName=${5:-"false"}
-resDir=${6:-"trimResDir"}
-outTar=${7:-"isPool.tar.gz"} #tarFile to return back on submit machine
-softZip=${8:-"Trimmomatic-0.36.zip"}
-isDry=${9:-true}
+name1=$1
+linkName1=$2
+useLink1=$3
+name2=$4
+linkName2=$5
+useLink2=$6
+trimLen=$7
+isOrigName=${8:-"false"}
+resDir=${9:-"trimResDir"}
+outTar=${10:-"isPool.tar.gz"} #tarFile to return back on submit machine
+softZip=${11:-"Trimmomatic-0.36.zip"}
+#ram=${9:-1}
+isDry=${12:-true}
 
-posTypes=(rep ctl dnase)
-
+posTypes=(1 2) #at least now code considers just 2 groups of files
+#export _JAVA_OPTIONS="-Xms256M -Xmx512M -XX:ParallelGCThreads=1"
+export _JAVA_OPTIONS="-Xms512M -Xmx1G -XX:ParallelGCThreads=1"
 
 ## Detect names and number of files for every type
 for i in "${posTypes[@]}"; do
-  eval "readarray -t tmpName <<< \"\$(echo \$${i}Name | tr \",\" \"\n\")\""
+  eval "readarray -t tmpName <<< \"\$(echo \$name${i} | tr \",\" \"\n\")\""
   if [[ -z $(RmSp "$tmpName") ]]; then
-      eval "${i}Num=0"
+      eval "num${i}=0"
   else
-    for j in "${tmpName[@]}"; do
-      ChkExist f "$j" "Input file: $j\n"
+    eval "readarray -t tmpUseLink <<< \"\$(echo \$useLink${i} | tr \",\" \"\n\")\""
+    eval "readarray -t tmpLinkName <<< \"\$(echo \$linkName${i} | tr \",\" \"\n\")\""
+    for j in "${!tmpName[@]}"; do
+      if [[ "${tmpUseLink[$j]}" != true ]]; then
+          # if it is true, I do not send file to condor
+          ChkExist f "${tmpName[$j]}" "Input file: ${tmpName[$j]}\n"
+      fi
     done
     
-    eval "${i}Num=${#tmpName[@]}"
-    eval "${i}Name=(\"\${tmpName[@]}\")"
+    eval "num${i}=${#tmpName[@]}"
+    eval "name${i}=(\"\${tmpName[@]}\")"
+    eval "useLink${i}=(\"\${tmpUseLink[@]}\")"
+    eval "linkName${i}=(\"\${tmpLinkName[@]}\")"
   fi
 done
 
@@ -100,13 +118,11 @@ else
   rm -rf "$softZip"
 fi
 
+## Define trimming length
 if [[ -n "$trimLen" ]]; then
-    for i in "${repName[@]}" "${ctlName[@]}" "${dnaseName[@]}"; do
-      if [[ -z "$i" ]]; then
-          continue
-      fi
-      
-      TrimSE "$i" "$trimLen" "$isOrigName" "$resDir"
+    # Update trimLenTmp just for non-zero group
+    for ((i=0; i<$((num1 + num2)); i++)); do
+      trimLenTmp[$i]="$trimLen"
     done
 else
   # Detect the trimming length
@@ -114,13 +130,19 @@ else
   echo "Detecting the trimming length ..."
   echo ""
   for i in "${posTypes[@]}"; do
-    eval "tmpName=(\"\${${i}Name[@]}\")"
+    eval "tmpName=(\"\${name${i}[@]}\")"
+    eval "tmpUseLink=(\"\${useLink${i}[@]}\")"
     
     if [[ -z "$tmpName" ]]; then
         continue
     fi
 
     for j in "${!tmpName[@]}"; do
+      if [[ "${tmpUseLink[$j]}" = true ]]; then
+          echo "Min of ${tmpName[j]}: skipped because it is a link"
+          continue
+      fi
+
       fileTmp="${tmpName[j]}"
       extTmp="${fileTmp##*.}"
       
@@ -134,53 +156,86 @@ else
                       'NR%4 == 2 {if (length($0) < minLen){minLen = length($0)}}
                       END{print minLen}')
 
-      eval "${i}MinLen[$j]=$minLenTmp"
-      echo "Min of $i$((j+1)): $minLenTmp bp"
+      eval "minLen$i[$j]=$minLenTmp"
+      echo "Min of ${tmpName[j]}: $minLenTmp bp"
     done
   done
   echo "Done!"
 
+  # Assign trimLenTmp to do trimming later
   # Copy length in case of several rep for an easy use
-  if [[ $repNum -gt 1 && $ctlNum -eq 1 ]]; then
-      for ((i=1; i<$repNum; i++)); do
-        ctlName[$i]="${ctlName[0]}"
-        ctlMinLen[$i]=${ctlMinLen[0]}
+  # Have to fix to repeat same procedure for num2 and num1
+  if [[ $num1 -gt 1 && $num2 -eq 1 ]]; then #chip then ctl
+      for ((i=1; i<$num1; i++)); do
+        name2[$i]="${name2[0]}"
+        minLen2[$i]=${minLen2[0]}
       done
   fi
 
-  # Trimming
-  echo "Trimming ..."
-  if [[ $repNum -gt 0 && $ctlNum -gt 0 ]]; then
-      for ((i=0; i<$repNum; i++)); do
-        trimLenTmp=$(Min ${repMinLen[$i]} ${ctlMinLen[$i]})
-        TrimSE "${repName[$i]}" "$trimLenTmp" "$isOrigName" "$resDir"
-        TrimSE "${ctlName[$i]}" "$trimLenTmp" "$isOrigName" "$resDir"
+  if [[ $num1 -gt 0 && $num2 -gt 0 ]]; then #they have same size from above
+      # Can be changed for a flag if more than 2 groups present
+      for ((i=0; i<$num1; i++)); do
+        trimLenTmp[$i]=$(Min ${minLen1[$i]} ${minLen2[$i]})
+        trimLenTmp[$((i + num1))]=${trimLenTmp[$i]}
       done
-  fi
-
-  if [[ $repNum -gt 0 && $ctlNum -eq 0 ]]; then
-      for ((i=0; i<$repNum; i++)); do
-        TrimSE "${repName[$i]}" "${repMinLen[$i]}" "$isOrigName" "$resDir"
+  else
+    # Update trimLenTmp just for non-zero group
+    for i in "${posTypes[@]}"; do
+      eval "numTmp=\$num$i"
+      for ((j=0; j<$numTmp; j++)); do
+        eval "minLenTmp=\${minLen$i[$j]}"
+        trimLenTmp[$j]="$minLenTmp"
       done
+    done
   fi
-
-  if [[ $ctlNum -gt 0 && $repNum -eq 0 ]]; then
-      for ((i=0; i<$ctlNum; i++)); do
-        TrimSE "${ctlName[$i]}" "${ctlMinLen[$i]}" "$isOrigName" "$resDir"
-      done
-  fi
-
-  if [[ $dnaseNum -gt 0 ]]; then
-      for ((i=0; i<$dnaseNum; i++)); do
-        TrimSE "${dnaseName[$i]}" "${dnaseMinLen[$i]}" "$isOrigName" "$resDir"
-      done
-  fi
-  echo "Done!"
 fi
 
 
+## Trimming
+echo "Trimming ..."
+iter=0
+for i in "${posTypes[@]}"; do
+  eval "tmpName=(\"\${name${i}[@]}\")"
+  if [[ -z "$tmpName" ]]; then
+      continue
+  fi
+  eval "tmpUseLink=(\"\${useLink${i}[@]}\")"
+  eval "tmpLinkName=(\"\${linkName${i}[@]}\")"
+
+  for j in "${!tmpName[@]}"; do
+    # Create a link instead of trimming
+    if [[ "${tmpUseLink[$j]}" = true ]]; then
+        mkdir -p "$resDir"
+        ln -s "${tmpName[$j]}" "$resDir/${tmpLinkName[$j]}"
+        ((iter++))
+        continue
+    fi
+
+    # Rename target(original) file with link file for current experiment
+    if [[ -n "${tmpLinkName[$j]}" ]]; then
+        # Problem that several reps, ctls might have link to the same target,
+        # so, when condor transfer the target it transfer just one of them.
+        # But we still have to truncate them separately. Thus,
+        # if there is duplicate of target files, then copy and mv the copy
+        # if no duplicates, then just mv it.
+        readarray -t ind <<<\
+                  "$(ArrayGetInd "1" "${tmpName[$j]}" "${tmpName[@]:$j}")"
+        if [[ "${#ind[@]}" -gt 1 ]]; then
+            cp "${tmpName[$j]}" "${tmpLinkName[$j]}"
+        else
+          mv "${tmpName[$j]}" "${tmpLinkName[$j]}"
+        fi
+        tmpName[$j]="${tmpLinkName[$j]}"
+    fi
+    
+    TrimSE "${tmpName[$j]}" "${trimLenTmp[$iter]}" "$isOrigName" "$resDir"
+    ((iter++))
+  done
+done
+echo "Done"
+
 ## Prepare tar to move results back
-tar -czf "$outTar" "$resDir"
+tar -cf "$outTar" "$resDir"
 if [[ $? -ne 0 ]]; then
     ErrMsg "Cannot create a $outTar"
 fi
@@ -188,6 +243,7 @@ fi
 
 # Has to hide all unnecessary files in tmp directories
 if [[ "$isDry" = false ]]; then
+    echo "Final step: moving files in $outTar"
     mv !("$resDir") "$resDir"
     mv "$resDir"/_condor_std* ./
     mv "$resDir/$outTar" ./
