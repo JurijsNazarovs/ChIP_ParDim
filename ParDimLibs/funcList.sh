@@ -710,12 +710,15 @@ mk_dir(){ #Delete.
 
 DetectInput(){
   # Function is specifically for ChIP analysis to detect input files
-  # It returns names and size of founded corresponded files
+  # It returns names, size and boolean if it is symlink of founded
+  # corresponding files
   # Usage:
   #  DetectInput "$inpDataInfo" "${#inpType[@]}" "${inpType[@]}" "$inpExt"\
   #        "true" "true" "true"
   # Output:
-  #  repName, repSize, repNum, useCtlPool
+  #  repName, repSize, repNum, repIsLink, repLinkName, useCtlPool
+  #
+  # repLinkName - name of the file, which is link, not target
   
 
   ## Input
@@ -788,6 +791,13 @@ DetectInput(){
             if [[ "$isDetectSize" = true ]]; then
                 eval $i"Size[\"$j\"]=${strTmp[1]}"
             fi
+            if [[ "${strTmp[2]}" = "s" ]]; then
+                eval $i"IsLink[\"$j\"]=true"
+                eval $i"LinkName[\"$j\"]=\"${strTmp[3]}\""
+            else
+              eval $i"IsLink[\"$j\"]=false"
+              eval $i"LinkName[\"$j\"]=\"\""
+            fi
 	    eval $i"Name[\"$j\"]=${inpDir[$j]%:}/\"${strTmp[0]}\""
           fi
 
@@ -804,7 +814,7 @@ DetectInput(){
                                     if (f == 1 && $1 ~ file) {print $1} 
                                  }' "$inpDataInfo"
                            )"
-                  local isCtlPoolTmp=() #files with pool.true or pool.false at the end
+                  local isCtlPoolTmp=() #files with pool.true or pool.false
                   local k
                   for k in "${strTmp[@]}"; do
                     if [[ "${k##*.}" = true || "${k##*.}" = false ]]; then
@@ -884,6 +894,14 @@ DetectInput(){
         if [[ "$isDetectSize" = true ]]; then
             eval $i"Size[\"$j\"]=${strTmp[1]}"
         fi
+
+        if [[ "${strTmp[2]}" = "s" ]]; then
+            eval $i"IsLink[\"$j\"]=true"
+            eval $i"LinkName[\"$j\"]=\"${strTmp[3]}\""
+        else
+          eval $i"IsLink[\"$j\"]=false"
+          eval $i"LinkName[\"$j\"]=\"\""
+        fi
         eval $i"Name[\"$j\"]=$inpPath/\"${strTmp[0]}\""
 
         # Detect the pool flag for ctlName[$j]
@@ -899,7 +917,7 @@ DetectInput(){
                               if (f == 1 && $1 ~ file) {print $1} 
                            }' "$inpDataInfo"
                       )"
-                local isCtlPoolTmp=() #files with pool.true or pool.false at the end
+                local isCtlPoolTmp=() #files with pool.true or pool.false
                 local k
                 for k in "${strTmp[@]}"; do
                   if [[ "${k##*.}" = true || "${k##*.}" = false ]]; then
