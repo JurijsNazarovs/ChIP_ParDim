@@ -79,7 +79,8 @@ for task in "${tasks[@]}"; do
              >> "$argsFile"
       printf "%-${maxLenStr}s %s\n" "trimLen" ""\
              >> "$argsFile"
-
+      printf "%-${maxLenStr}s %s\n" "trimLenDnase" ""\
+             >> "$argsFile"
       printf "\n" >> "$argsFile"
       continue
   fi
