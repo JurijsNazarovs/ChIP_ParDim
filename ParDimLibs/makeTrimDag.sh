@@ -57,7 +57,7 @@ ReadArgs "$argsFile" "1" "${curScrName%.*}" "${#posArgs[@]}" "${posArgs[@]}"\
 for i in exePath funcList resPath; do
   eval "strTmp=\"\$$i\""
   if [[ "${strTmp:0:1}" != "/" ]]; then
-    ErrMsg "The full path for $i has to be provided:
+      ErrMsg "The full path for $i has to be provided:
            Current value is: $strTmp"
   fi
 done
@@ -91,7 +91,7 @@ done
 DetectInput "$inpDataInfo" "${#inpType[@]}" "${inpType[@]}" "$inpExt"\
             "$isInpNested" "true"
 if !([[ "$ctlNum" -eq 0 || "$ctlNum" -eq 1 || "$ctlNum" -eq "$repNum" || \
-      "$repNum" -eq 0 ]]); then
+            "$repNum" -eq 0 ]]); then
     ErrMsg "Confusing number of ctl files.
             Number of ctl: $ctlNum
             Number of rep: $repNum"
@@ -101,13 +101,15 @@ if [[ "$ctlNum" -eq 0 && "$repNum" -eq 0 && "$dnaseNum" -eq 0 ]]; then
     ErrMsg "No input is detected"
 fi
 
-# Arguments for condor job
+
+## Condor file
+# Arguments for condor job according to exeTrim.sh
 argsCon=("\$(name1)"
-         "\$(linkName1)"
          "\$(useLink1)"
+         "\$(linkName1)"
          "\$(name2)"
-         "\$(linkName2)"
          "\$(useLink2)"
+         "\$(linkName2)"
          "\$(trimLen)"
          "$isOrigName"
          "$resDir"
@@ -119,17 +121,6 @@ argsCon=$(JoinToStr "\' \'" "${argsCon[@]}")
 # Output directory for condor log files
 conOut="$jobsDir/conOut"
 mkdir -p "$conOut"
-
-# Since we might use links for dnase, names have to be changed accordingly
-# and transfer just those files which do not have links
-for i in "${!dnaseName[@]}"; do
-  if [[ "${dnaseIsLink[$i]}" = false ]]; then
-      dnaseNameTrans=("${dnaseNameTrans[@]}" "${dnaseName[$i]}")
-      dnaseName[$i]="${dnaseName[$i]##*/}"
-  else
-    dnaseName[$i]="../${dnaseName[$i]#*../}"
-  fi
-done
 
 # Transfered files
 transFiles=("\$(TransFiles)"
@@ -149,80 +140,79 @@ PrintfLine > "$dagFile"
 printf "# [Start] Description of $dagFile\n" >> "$dagFile"
 PrintfLine >> "$dagFile"
 
-
-## dnase
-jobId="TrimdDnase"
-# Calculate required memory, based on input files
-requirSize=0
-maxSize=0
-for i in "${dnaseSize[@]}"; do
-  if [[ "${dnaseIsLink[$i]}" = true ]]; then
-      # skip size additing
-      continue
+## Dnase
+# Since we might use links for dnase, names have to be changed accordingly
+# and transfer just those files which do not have links
+for i in "${!dnaseName[@]}"; do
+  if [[ "${dnaseIsLink[$i]}" = false ]]; then
+      dnaseNameTrans=("${dnaseNameTrans[@]}" "${dnaseName[$i]}")
+      dnaseName[$i]="${dnaseName[$i]##*/}"
+  else
+    dnaseNameTrans=("${dnaseNameTrans[@]}" "")
+    dnaseName[$i]="../${dnaseName[$i]#*../}" #name is used to create a link
   fi
-  requirSize=$((requirSize + i))
-  maxSize=$(Max $maxSize $i) # + this, since we create new trimmed file
 done
 
-hd=$((requirSize + maxSize)) #size in bytes.
-hd=$((hd*1)) #increase size in 1 times
-hd=$(echo $hd/1024^3 + 1 | bc) #in GB rounded to a bigger integer
-hd=$((2*hd + 3)) #+1gb for safety + 2gb for software, *2 for output
-
-# Job description
-printf "JOB  $jobId $conFile\n" >> "$dagFile"
-
-printf "VARS $jobId name1=\"$(JoinToStr "," "${dnaseName[@]}")\"\n"\
-       >> "$dagFile"
-printf "VARS $jobId linkName1=\"$(JoinToStr "," "${dnaseLinkName[@]}")\"\n"\
-       >> "$dagFile"
-printf "VARS $jobId useLink1=\"$(JoinToStr "," "${dnaseIsLink[@]}")\"\n"\
-       >> "$dagFile"
-printf "VARS $jobId trimLen=\"$trimLenDnase\"\n" >> "$dagFile"
-printf "VARS $jobId hd=\"$hd\"\n" >> "$dagFile"
-printf "VARS $jobId TransFiles=\"$(JoinToStr "," "${dnaseNameTrans[@]}")\"\n"\
-       >> "$dagFile"
-
-printf "VARS $jobId transOut=\"$transOut.dnase.tar\"\n" >> "$dagFile"
-printf "VARS $jobId transMap=\"\$(transOut)=$resPath/\$(transOut)\"\n"\
-       >> "$dagFile"
-printf "\n" >> "$dagFile"
-
+for i in "${!dnaseName[@]}"; do
+  jobId="TrimdDnase$((i + 1))"
+  
+  # Calculate required memory, based on input files
+  hd="${dnaseSize[$i]}" #size in bytes.
+  hd=$(echo $hd/1024^3 + 1 | bc) #in GB rounded to a bigger integer
+  hd=$((2*hd + 3)) #+1gb for safety + 2gb for software, *2 for output
+  
+  # Job description
+  printf "JOB  $jobId $conFile\n" >> "$dagFile"
+  
+  printf "VARS $jobId name1=\"${dnaseName[$i]}\"\n" >> "$dagFile"
+  printf "VARS $jobId useLink1=\"${dnaseIsLink[$i]}\"\n" >> "$dagFile"
+  printf "VARS $jobId linkName1=\"${dnaseLinkName[$i]}\"\n"  >> "$dagFile"
+  printf "VARS $jobId trimLen=\"$trimLenDnase\"\n" >> "$dagFile"
+  printf "VARS $jobId hd=\"$hd\"\n" >> "$dagFile"
+  printf "VARS $jobId TransFiles=\"${dnaseNameTrans[$i]}\"\n" >> "$dagFile"
+  
+  printf "VARS $jobId transOut=\"$transOut.$jobId.tar\"\n" >> "$dagFile"
+  printf "VARS $jobId transMap=\"\$(transOut)=$resPath/\$(transOut)\"\n"\
+         >> "$dagFile"
+  printf "\n" >> "$dagFile"
+done
 
 ## chip/ctl
-jobId="TrimRepCtl"
-# Calculate required memory, based on input files
-requirSize=0
-maxSize=0
-for i in "${repSize[@]}" "${ctlSize[@]}"; do
-  requirSize=$((requirSize + i))
-  maxSize=$(Max $maxSize $i) # + this, since we create new trimmed file
+
+# Copy ctl information for easy use in case of several reps and 1 ctl
+if [[ $repNum -gt $ctlNum && $ctlNum -eq 1 ]]; then
+    for ((i=1; i<$num1; i++)); do
+      ctlName[$i]="${ctlName[0]}"
+      ctlLinkName[$i]="${ctlLinkName[0]}"
+    done
+fi
+
+iterNum=$(Max $repNum $ctlNum)
+for (( i=0; i<${iterNum}; i++ )); do
+  jobId="TrimRepCtl$((i + 1))"
+  # Calculate required memory, based on input files
+  hd=$((repSize[$i] + ctlSize[$i])) #size in bytes
+  hd=$(echo $hd/1024^3 + 1 | bc) #in GB rounded to a bigger integer
+  hd=$((2*hd + 3)) #+1gb for safety + 2gb for software, *2 for output
+  
+  # Job description
+  printf "JOB  $jobId $conFile\n" >> "$dagFile"
+  
+  printf "VARS $jobId name1=\"${repName[$i]##*/}\"\n" >> "$dagFile"
+  printf "VARS $jobId linkName1=\"${repLinkName[$i]}\"\n" >> "$dagFile"
+  printf "VARS $jobId name2=\"${ctlName[$i]##*/}\"\n" >> "$dagFile"
+  printf "VARS $jobId linkName2=\"${ctlLinkName[$i]}\"\n" >> "$dagFile"
+  printf "VARS $jobId trimLen=\"$trimLen\"\n" >> "$dagFile"
+  printf "VARS $jobId hd=\"$hd\"\n" >> "$dagFile"
+  printf "VARS $jobId TransFiles=\"$(JoinToStr "," "${repName[$i]}" "${ctlName[$i]}")\"\n"\
+         >> "$dagFile"
+  
+  printf "VARS $jobId transOut=\"$transOut.$jobId.tar\"\n" >> "$dagFile"
+  printf "VARS $jobId transMap=\"\$(transOut)=$resPath/\$(transOut)\"\n"\
+         >> "$dagFile"
+  printf "\n" >> "$dagFile"
 done
 
-hd=$((requirSize + maxSize)) #size in bytes.
-hd=$((hd*1)) #increase size in 1 times
-hd=$(echo $hd/1024^3 + 1 | bc) #in GB rounded to a bigger integer
-hd=$((2*hd + 3)) #+1gb for safety + 2gb for software, *2 for output
-
-# Job description
-printf "JOB  $jobId $conFile\n" >> "$dagFile"
-
-printf "VARS $jobId name1=\"$(JoinToStr "," "${repName[@]##*/}")\"\n"\
-       >> "$dagFile"
-printf "VARS $jobId linkName1=\"$(JoinToStr "," "${repLinkName[@]}")\"\n"\
-       >> "$dagFile"
-printf "VARS $jobId name2=\"$(JoinToStr "," "${ctlName[@]##*/}")\"\n"\
-       >> "$dagFile"
-printf "VARS $jobId linkName2=\"$(JoinToStr "," "${ctlLinkName[@]}")\"\n"\
-       >> "$dagFile"
-printf "VARS $jobId trimLen=\"$trimLen\"\n" >> "$dagFile"
-printf "VARS $jobId hd=\"$hd\"\n" >> "$dagFile"
-printf "VARS $jobId TransFiles=\"$(JoinToStr "," "${repName[@]}" "${ctlName[@]}")\"\n"\
-       >> "$dagFile"
-
-printf "VARS $jobId transOut=\"$transOut.RepCtl.tar\"\n" >> "$dagFile"
-printf "VARS $jobId transMap=\"\$(transOut)=$resPath/\$(transOut)\"\n"\
-       >> "$dagFile"
 
 ## End
 PrintfLine >> "$dagFile"

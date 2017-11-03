@@ -70,11 +70,11 @@ TrimSE(){
 
 ## Input and default values
 name1=$1
-linkName1=$2
-useLink1=$3
+useLink1=$2
+linkName1=$3
 name2=$4
-linkName2=$5
-useLink2=$6
+useLink2=$5
+linkName2=$6
 trimLen=$7
 isOrigName=${8:-"false"}
 resDir=${9:-"trimResDir"}
@@ -152,7 +152,7 @@ else
                    else
                      cat "$fileTmp";
                    fi)|\
-                      awk -v minLen=minLenTmp\
+                      awk -v minLen=$minLenTmp\
                       'NR%4 == 2 {if (length($0) < minLen){minLen = length($0)}}
                       END{print minLen}')
 
