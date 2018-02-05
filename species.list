@@ -1,0 +1,18 @@
+[hg19]
+chrsz   = hg19.chrom.sizes
+seq     = 
+gensz   = hs #genome size: hs for human, mm for mouse
+umap    = 
+umap_hic= 
+bwa_idx =
+bwt_idx = 
+bwt2_idx = 
+blacklist = blackList.bed
+
+tss_enrich = 
+ref_fa  = 
+dnase = 
+prom = 
+enh = 
+reg2map = 
+roadmap_meta = 
